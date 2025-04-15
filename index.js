@@ -5,6 +5,8 @@ const connectDB = require("./config/db");
 const userRoutes = require("./routes/userRoutes")
 const memberRoutes = require("./routes/memberRoutes")
 const adminRoutes = require("./routes/adminRoutes")
+const gameRoutes = require("./routes/gameRoutes");
+const betRoutes = require("./routes/betRoutes");
 
 dotenv.config();
 connectDB();
@@ -14,8 +16,15 @@ const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); 
-// Configure CORS to allow requests from multiple origins
-const allowedOrigins = ["http://localhost:3000", "http://localhost:3001"];
+// Configure CORS to allow requests from multiple origins,
+const allowedOrigins = [
+  "https://bettingfront.vercel.app",
+  "https://bettingfront.vercel.app/login",
+  "https://memberdash.vercel.app",
+  "https://betdashboard-zeta.vercel.app",
+  "http://localhost:3000"
+];
+
 
 app.use(
   cors({
@@ -26,7 +35,9 @@ app.use(
 
 app.use("/api/user", userRoutes);
 app.use("/api/members",memberRoutes)
+app.use("/api/bet", betRoutes);
 app.use("/api/admin",adminRoutes)
+app.use("/api/games", gameRoutes);
 app.get("/",(req,res)=>{
     res.send("Hello")
 })

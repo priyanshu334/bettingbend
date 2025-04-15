@@ -1,17 +1,24 @@
-const mongoose = require("mongoose");
+// models/User.ts
+import mongoose from "mongoose";
 
-const UserSchema = new mongoose.Schema(
-  {
-    userId: { type: String, required: true, unique: true }, // Explicitly provided User ID
-    fullName: { type: String, required: true }, // Full Name
-    phone: { type: String, required: true, unique: true }, // Phone Number (unique)
-    password: { type: String, required: true }, // Encrypted Password
-    referralCode: { type: String, default: null }, // Optional Referral Code
-    money: { type: Number, required: true, default: 0 }, // User Balance
-  },
-  { timestamps: true }
-);
+const userSchema = new mongoose.Schema({
+  userId: String,
+  fullName: String,
+  phone: String,
+  password: String,
+  referralCode: String,
+  money: { type: Number, default: 0 },
+  totalBets: { type: Number, default: 0 }, // Total amount bet
+  betHistory: [
+    {
+      player: String,
+      odds: String,
+      amount: Number,
+      result: String, // 'win' | 'lose'
+      winnings: Number,
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+});
 
-const User = mongoose.model("User", UserSchema);
-
-module.exports = User;
+export default mongoose.models.User || mongoose.model("User", userSchema);

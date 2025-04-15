@@ -2,13 +2,13 @@ const Member = require("../models/member");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const SECRET_KEY = "your_secret_key"; // Replace with env variable
+const SECRET_KEY = process.env.JWT_SECRET; // Replace with env variable
 
 // ✅ Member Signup (Register)
 const memberSignup = async (req, res) => {
   try {
     const { memberId, fullName, phone, password, money } = req.body;
-
+    console.log(req.body);
     // Check if member already exists
     const existingMember = await Member.findOne({ phone });
     if (existingMember) {

@@ -2,7 +2,7 @@ const Admin = require("../models/admin");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const SECRET_KEY = "your_secret_key"; // Replace with env variable
+const SECRET_KEY = process.env.JWT_SECRET;; // Replace with env variable
 
 // ✅ Admin Signup (Register)
 const adminSignup = async (req, res) => {
