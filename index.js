@@ -6,7 +6,7 @@ const userRoutes = require("./routes/userRoutes")
 const memberRoutes = require("./routes/memberRoutes")
 const adminRoutes = require("./routes/adminRoutes")
 const gameRoutes = require("./routes/gameRoutes");
-const betRoutes = require("./routes/betRoutes");
+const betRoutes = require("./routes/bet");
 
 dotenv.config();
 connectDB();

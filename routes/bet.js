@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { placeBet } = require("../controllers/betController");
+const { placeBet } = require("../controller/betController");
 
 // POST /api/bet/place
 router.post("/place", placeBet);

@@ -1,90 +1,197 @@
 const { PlinkoGameSettings, GameSession, Transaction } = require("../models/gameModels");
-const {GameController} = require("../controller/gameController");
+const User = require("../models/user");
+const { BadRequestError, NotFoundError } = require("../errors/customErrors");
 
-class PlinkoController extends GameController {
+class PlinkoController {
+  constructor() {
+    this.simulateBallPath = this.simulateBallPath.bind(this);
+    this.generatePegPositions = this.generatePegPositions.bind(this);
+  }
+
   async getSettings(req, res) {
     try {
-      const settings = await PlinkoGameSettings.findOne();
-      res.json(settings || await PlinkoGameSettings.create({}));
+      let settings = await PlinkoGameSettings.findOne();
+      
+      if (!settings) {
+        settings = await PlinkoGameSettings.create({});
+      }
+      
+      res.json({
+        success: true,
+        data: settings
+      });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error("Failed to get Plinko settings:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to retrieve Plinko settings",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 
   async placeBet(req, res) {
+    const session = await mongoose.startSession();
     try {
+      session.startTransaction();
+      
       const { userId, role } = req.user;
-      const { betAmount, dropPosition } = req.body;
+      const { betAmount } = req.body;
       
-      // Get settings
-      const settings = await PlinkoGameSettings.findOne();
+      // Get settings with session
+      const settings = await PlinkoGameSettings.findOne().session(session);
+      if (!settings) throw new NotFoundError("Plinko settings not found");
       
-      // Validate bet
+      // Validate bet amount
       if (betAmount < settings.minBet || betAmount > settings.maxBet) {
-        return res.status(400).json({ message: `Bet must be between ${settings.minBet} and ${settings.maxBet}` });
+        throw new BadRequestError(`Bet must be between ${settings.minBet} and ${settings.maxBet}`);
+      }
+      
+      // Get user with session
+      const user = await User.findOne({ userId }).session(session);
+      if (!user) throw new NotFoundError("User not found");
+      
+      // Check balance
+      if (user.money < betAmount) {
+        throw new BadRequestError("Insufficient balance");
       }
       
       // Deduct bet amount
-      const user = await this.updateUserBalance(userId, role, -betAmount);
-      await this.createTransaction(userId, role, -betAmount, "game_bet");
+      user.money -= betAmount;
+      user.totalBets += betAmount;
+      await user.save({ session });
+      
+      // Create bet transaction
+      const betTransaction = new Transaction({
+        transactionId: `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        userId,
+        userType: role,
+        amount: -betAmount,
+        type: "game_bet",
+        gameType: "plinko",
+        status: "completed"
+      });
+      await betTransaction.save({ session });
+      
+      // Simulate ball drop
+      const { finalSlot, path } = this.simulateBallPath(settings.fixedDropPosition, settings);
+      const multiplier = settings.slots[finalSlot];
+      const winAmount = betAmount * multiplier;
       
       // Create game session
-      const session = await this.createGameSession("plinko", userId, role, betAmount);
+      const gameSession = new GameSession({
+        sessionId: `plinko_${Date.now()}_${userId}`,
+        gameType: "plinko",
+        userId,
+        userType: role,
+        betAmount,
+        state: "completed",
+        outcome: { multiplier, winAmount },
+        winAmount,
+        plinkoDetails: {
+          path,
+          finalSlot,
+          multiplier
+        },
+        completedAt: new Date()
+      });
+      await gameSession.save({ session });
       
-      // Simulate ball drop using the same physics as frontend
-      const { finalSlot, path } = this.simulateBallPath(dropPosition, settings);
-      const winAmount = betAmount * settings.slots[finalSlot];
-      
-      // Update user balance if won
+      // Update user if won
       if (winAmount > 0) {
-        await this.updateUserBalance(userId, role, winAmount);
-        await this.createTransaction(userId, role, winAmount, "game_win", session.sessionId);
+        user.money += winAmount;
+        await user.save({ session });
+        
+        // Add to bet history
+        user.betHistory.push({
+          player: "plinko",
+          odds: `${multiplier}x`,
+          amount: betAmount,
+          result: "win",
+          winnings: winAmount
+        });
+        await user.save({ session });
+        
+        // Create win transaction
+        const winTransaction = new Transaction({
+          transactionId: `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          userId,
+          userType: role,
+          amount: winAmount,
+          type: "game_win",
+          gameType: "plinko",
+          gameSessionId: gameSession.sessionId,
+          status: "completed",
+          metadata: { multiplier }
+        });
+        await winTransaction.save({ session });
       } else {
-        await this.createTransaction(userId, role, -betAmount, "game_loss", session.sessionId);
+        // Add to bet history for loss
+        user.betHistory.push({
+          player: "plinko",
+          odds: `${multiplier}x`,
+          amount: betAmount,
+          result: "lose",
+          winnings: 0
+        });
+        await user.save({ session });
+        
+        // Create loss transaction
+        const lossTransaction = new Transaction({
+          transactionId: `txn_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          userId,
+          userType: role,
+          amount: -betAmount,
+          type: "game_loss",
+          gameType: "plinko",
+          gameSessionId: gameSession.sessionId,
+          status: "completed"
+        });
+        await lossTransaction.save({ session });
       }
       
-      // Update session
-      session.state = "completed";
-      session.outcome = { 
-        dropPosition, 
-        finalSlot,
-        path, // Store the path for potential debugging/replay
-        multiplier: settings.slots[finalSlot]
-      };
-      session.winAmount = winAmount;
-      session.completedAt = new Date();
-      await session.save();
+      await session.commitTransaction();
       
       res.json({
-        finalSlot,
-        winAmount,
-        newBalance: user.money,
-        multiplier: settings.slots[finalSlot],
-        path // Optional: send path back to frontend for verification
+        success: true,
+        data: {
+          finalSlot,
+          winAmount,
+          multiplier,
+          newBalance: user.money,
+          path
+        }
       });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      await session.abortTransaction();
+      console.error("Plinko bet error:", error);
+      
+      const status = error.statusCode || 500;
+      res.status(status).json({
+        success: false,
+        error: error.message || "Failed to place Plinko bet",
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    } finally {
+      session.endSession();
     }
   }
 
-  // Physics simulation matching frontend logic
   simulateBallPath(dropPosition, settings) {
     const path = [];
     const slotCount = settings.slots.length;
     const slotWidth = settings.boardWidth / slotCount;
     
-    // Physics parameters (should match frontend)
-    const physics = {
+    const physics = settings.physics || {
       gravity: 0.2,
       friction: 0.92,
       restitution: 0.65,
       randomness: 0.15,
-      terminalVelocity: 5,
+      terminalVelocity: 5
     };
     
-    // Ball state
     const ball = {
-      x: dropPosition / 100 * settings.boardWidth, // Convert % to px
+      x: dropPosition / 100 * settings.boardWidth,
       y: 0,
       vx: 0,
       vy: 0.1,
@@ -93,11 +200,9 @@ class PlinkoController extends GameController {
     
     path.push({ x: ball.x, y: ball.y });
     
-    // Generate pegs (same layout as frontend)
     const pegs = this.generatePegPositions(settings);
-    
-    // Organize pegs by row for efficient collision detection
     const pegsByRow = {};
+    
     pegs.forEach(peg => {
       const row = Math.round(peg.y / (settings.boardHeight / settings.rows));
       if (!pegsByRow[row]) pegsByRow[row] = [];
@@ -108,14 +213,10 @@ class PlinkoController extends GameController {
     const maxRow = Math.max(...Object.keys(pegsByRow).map(Number));
     
     while (ball.y < settings.boardHeight) {
-      // Apply forces (same as frontend)
       ball.vy = Math.min(ball.vy + physics.gravity, physics.terminalVelocity);
-      
-      // Update position
       ball.x += ball.vx;
       ball.y += ball.vy;
       
-      // Check for collisions with current row
       if (currentRow <= maxRow && pegsByRow[currentRow]) {
         for (const peg of pegsByRow[currentRow]) {
           const dx = ball.x - peg.x;
@@ -124,33 +225,27 @@ class PlinkoController extends GameController {
           const minDistance = ball.radius + settings.pegSize / 2;
           
           if (distance < minDistance) {
-            // Collision response (same as frontend)
             const nx = dx / distance;
             const ny = dy / distance;
-            
-            // Position correction
             const overlap = minDistance - distance;
+            
             ball.x += nx * overlap * 0.5;
             ball.y += ny * overlap * 0.5;
             
-            // Calculate impulse
             const dot = ball.vx * nx + ball.vy * ny;
             ball.vx = (ball.vx - 2 * dot * nx) * physics.restitution;
             ball.vy = (ball.vy - 2 * dot * ny) * physics.restitution;
             
-            // Add randomness
             ball.vx += (Math.random() - 0.5) * physics.randomness;
             ball.vy += (Math.random() - 0.1) * physics.randomness;
           }
         }
       }
       
-      // Move to next row if we've passed it
       if (ball.y > (currentRow + 1) * (settings.boardHeight / settings.rows)) {
         currentRow++;
       }
       
-      // Boundary collisions (same as frontend)
       if (ball.x < ball.radius) {
         ball.x = ball.radius;
         ball.vx = -ball.vx * physics.friction;
@@ -159,11 +254,9 @@ class PlinkoController extends GameController {
         ball.vx = -ball.vx * physics.friction;
       }
       
-      // Apply friction
       ball.vx *= physics.friction;
       ball.vy *= physics.friction;
       
-      // Record position (with decimation to optimize)
       if (path.length < 2 || 
           Math.abs(ball.x - path[path.length-1].x) > 1 || 
           Math.abs(ball.y - path[path.length-1].y) > 1) {
@@ -171,13 +264,11 @@ class PlinkoController extends GameController {
       }
     }
     
-    // Determine final slot (same as frontend)
     const finalSlot = Math.min(
       Math.floor(ball.x / slotWidth), 
       slotCount - 1
     );
     
-    // Add final position
     path.push({ 
       x: (finalSlot + 0.5) * slotWidth, 
       y: settings.boardHeight 
@@ -186,13 +277,12 @@ class PlinkoController extends GameController {
     return { 
       finalSlot,
       path: path.map(p => ({
-        x: (p.x / settings.boardWidth) * 100, // Convert back to %
+        x: (p.x / settings.boardWidth) * 100,
         y: (p.y / settings.boardHeight) * 100
       }))
     };
   }
 
-  // Peg generation matching frontend logic
   generatePegPositions(settings) {
     const pegs = [];
     const { rows, boardWidth, boardHeight, pegSize } = settings;
@@ -219,15 +309,40 @@ class PlinkoController extends GameController {
   async getHistory(req, res) {
     try {
       const { userId, role } = req.user;
+      const { limit = 20, page = 1 } = req.query;
+      
       const history = await GameSession.find({ 
         userId, 
         userType: role,
         gameType: "plinko"
-      }).sort({ createdAt: -1 }).limit(20);
+      })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
       
-      res.json(history);
+      const total = await GameSession.countDocuments({ 
+        userId, 
+        userType: role,
+        gameType: "plinko" 
+      });
+      
+      res.json({
+        success: true,
+        data: history,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / parseInt(limit))
+        }
+      });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error("Failed to get Plinko history:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to retrieve Plinko history",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 }

@@ -1,6 +1,6 @@
-const User = require("../models/User");
-const Admin = require("../models/Admin");
-const Member = require("../models/Member");
+const User = require("../models/user");
+const Admin = require("../models/admin");
+const Member = require("../models/member");
 
 const placeBet = async (req, res) => {
   try {

@@ -1,12 +1,17 @@
 const mongoose = require("mongoose");
 
-// Game Settings Schema
+// Base Game Settings Schema
 const GameSettingsSchema = new mongoose.Schema({
-  gameType: { type: String, enum: ["color-prediction", "mines"], required: true },
+  gameType: { 
+    type: String, 
+    enum: ["color-prediction", "mines", "plinko"], 
+    required: true 
+  },
   minBet: { type: Number, default: 10 },
   maxBet: { type: Number, default: 10000 },
   isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
 });
 
 // Color Game Specific Settings
@@ -35,25 +40,62 @@ const MinesGameSettingsSchema = new mongoose.Schema({
   multiplierIncrement: { type: Number, default: 0.2 }
 });
 
-// Game Session Schema
+// Plinko Game Specific Settings
+const PlinkoGameSettingsSchema = new mongoose.Schema({
+  ...GameSettingsSchema.obj,
+  rows: { type: Number, default: 16 },
+  slots: { 
+    type: [Number], 
+    default: [110, 41, 10, 1.2, 1, 0.8, 0.6, 0.5, 0.3, 0.5, 0.6, 0.8, 1, 1.2, 10, 41, 110] 
+  },
+  ballSize: { type: Number, default: 16 },
+  pegSize: { type: Number, default: 6 },
+  boardWidth: { type: Number, default: 100 }, // Percentage based
+  boardHeight: { type: Number, default: 80 }, // Percentage based
+  animationDuration: { type: Number, default: 3 }, // In seconds
+  fixedDropPosition: { type: Number, default: 50 }, // Percentage (center)
+  physics: {
+    gravity: { type: Number, default: 0.2 },
+    friction: { type: Number, default: 0.92 },
+    restitution: { type: Number, default: 0.65 },
+    randomness: { type: Number, default: 0.15 },
+    terminalVelocity: { type: Number, default: 5 }
+  }
+});
+
+// Enhanced Game Session Schema
 const GameSessionSchema = new mongoose.Schema({
   sessionId: { type: String, required: true, unique: true },
-  gameType: { type: String, enum: ["color-prediction", "mines"], required: true },
+  gameType: { 
+    type: String, 
+    enum: ["color-prediction", "mines", "plinko"], 
+    required: true 
+  },
   userId: { type: String, required: true },
   userType: { type: String, enum: ["admin", "member", "user"], required: true },
   betAmount: { type: Number, required: true },
   state: { 
     type: String, 
     enum: ["active", "completed", "cashed_out", "lost"], 
-    required: true 
+    required: true,
+    default: "active"
   },
   outcome: mongoose.Schema.Types.Mixed,
   winAmount: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
-  completedAt: { type: Date }
+  completedAt: { type: Date },
+  // Plinko specific fields
+  plinkoDetails: {
+    path: [{
+      x: Number,
+      y: Number
+    }],
+    finalSlot: Number,
+    multiplier: Number
+  }
 });
 
-// Transaction Schema
+// Enhanced Transaction Schema
 const TransactionSchema = new mongoose.Schema({
   transactionId: { type: String, required: true, unique: true },
   userId: { type: String, required: true },
@@ -61,41 +103,31 @@ const TransactionSchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   type: { 
     type: String, 
-    enum: ["deposit", "withdrawal", "game_bet", "game_win", "game_loss", "referral"],
+    enum: ["deposit", "withdrawal", "game_bet", "game_win", "game_loss", "referral", "plinko"],
     required: true 
   },
   gameSessionId: { type: String },
-  status: { type: String, enum: ["pending", "completed", "failed"], default: "completed" },
+  gameType: { type: String, enum: ["color-prediction", "mines", "plinko"] },
+  status: { 
+    type: String, 
+    enum: ["pending", "completed", "failed"], 
+    default: "completed" 
+  },
+  metadata: mongoose.Schema.Types.Mixed,
   createdAt: { type: Date, default: Date.now }
 });
-// Add to your existing game models
-const PlinkoGameSettingsSchema = new mongoose.Schema({
-    ...GameSettingsSchema.obj,
-    rows: { type: Number, default: 16 },
-    slots: { type: [Number], default: [110, 41, 10, 5, 3, 1.5, 1, 0.5, 0.3, 0.5, 1, 1.5, 3, 5, 10, 41, 110] },
-    ballSize: { type: Number, default: 16 },
-    pegSize: { type: Number, default: 6 },
-    boardWidth: { type: Number, default: 100 },
-    boardHeight: { type: Number, default: 80 },
-    animationDuration: { type: Number, default: 3 }
-  });
-  
- 
-  
-  // Add to your exports
-  
 
 // Create models
 const ColorGameSettings = mongoose.model("ColorGameSettings", ColorGameSettingsSchema);
 const MinesGameSettings = mongoose.model("MinesGameSettings", MinesGameSettingsSchema);
+const PlinkoGameSettings = mongoose.model("PlinkoGameSettings", PlinkoGameSettingsSchema);
 const GameSession = mongoose.model("GameSession", GameSessionSchema);
 const Transaction = mongoose.model("Transaction", TransactionSchema);
-const PlinkoGameSettings = mongoose.model("PlinkoGameSettings", PlinkoGameSettingsSchema);
 
 module.exports = {
   ColorGameSettings,
   MinesGameSettings,
+  PlinkoGameSettings,
   GameSession,
-  Transaction,
-  PlinkoGameSettings
+  Transaction
 };
