@@ -12,7 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // User Signup
 const signup = async (req, res) => {
   try {
-    const { userId, fullName, phone, password, referralCode } = req.body;
+    const { fullName, phone, password, referralCode } = req.body;
 
     // Check if phone number is already registered
     const existingUser = await User.findOne({ phone });
@@ -23,31 +23,38 @@ const signup = async (req, res) => {
 
     // Create a new user with additional fields
     const newUser = new User({
-      userId,
       fullName,
       phone,
       password: hashedPassword,
       referralCode: referralCode || null,
-      money: 0, // Default balance
-      totalBets: 0, // Initialize total bets
-      betHistory: [] // Initialize empty bet history
+      money: 0,
+      totalBets: 0,
+      betHistory: []
     });
 
     await newUser.save();
 
     // Apply referral bonus if referral code exists
     if (referralCode) {
-      await applyReferralBonus(referralCode, userId);
+      await applyReferralBonus(referralCode, newUser._id);
     }
 
-    res.status(201).json({ message: "User registered successfully", userId });
+    res.status(201).json({ 
+      message: "User registered successfully", 
+      user: {
+        id: newUser._id,
+        fullName: newUser.fullName,
+        phone: newUser.phone,
+        money: newUser.money
+      }
+    });
   } catch (error) {
     console.error("Signup Error:", error);
     res.status(400).json({ message: "Invalid input", error: error.message });
   }
 };
 
-// User Login (unchanged)
+// User Login
 const login = async (req, res) => {
   try {
     const { phone, password } = req.body;
@@ -62,28 +69,40 @@ const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid phone number or password" });
     }
 
-    // Include userId and role in the token payload
+    // Include MongoDB _id and role in the token payload
     const tokenPayload = {
-        userId: user.userId,
-        role: 'user' // Assuming this controller handles regular users
+      id: user._id,
+      role: 'user'
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "7d" });
 
-
-    res.json({ message: "Login successful", token });
+    res.json({ 
+      message: "Login successful", 
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        phone: user.phone,
+        money: user.money
+      }
+    });
   } catch (error) {
     console.error("Login Error:", error);
     res.status(400).json({ message: "Invalid input", error: error.message });
   }
 };
 
-// Find User by ID (now includes bet history)
+// Find User by ID
 const findUserById = async (req, res) => {
   try {
-    const { userId } = req.params;
-    // Exclude password from the result
-    const user = await User.findOne({ userId }).select("-password");
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(id).select("-password -__v");
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -94,60 +113,58 @@ const findUserById = async (req, res) => {
   }
 };
 
-// *** NEW FUNCTION START ***
 // Get user balance by ID
 const getUserBalance = async (req, res) => {
   try {
-    const { userId } = req.params;
-    // Find the user and select only the 'money' field
-    const user = await User.findOne({ userId }).select("money");
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(id).select("money");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Return the balance
     res.json({ balance: user.money });
   } catch (error) {
     console.error("Get User Balance Error:", error);
     res.status(500).json({ message: "Error retrieving user balance", error: error.message });
   }
 };
-// *** NEW FUNCTION END ***
 
 // Add bet to user history
 const addBetToHistory = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { player, odds, amount, result, winnings } = req.body;
 
-    // Validate input data (basic example)
-    if (!player || !odds || typeof amount !== 'number' || !result || typeof winnings !== 'number') {
-        return res.status(400).json({ message: "Invalid bet data provided" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    const user = await User.findOne({ userId });
+    if (!player || !odds || typeof amount !== 'number' || !result || typeof winnings !== 'number') {
+      return res.status(400).json({ message: "Invalid bet data provided" });
+    }
+
+    const user = await User.findById(id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Add new bet to history
     user.betHistory.push({
       player,
       odds,
       amount,
       result,
-      winnings,
-      createdAt: new Date() // Add timestamp to bet history
+      winnings
+      // createdAt will be added automatically by the schema
     });
 
-    // Update total bets placed
     user.totalBets += amount;
-
-    // Note: This endpoint only adds history. Balance changes should happen in game logic.
-    // If winnings > 0, the game logic should have already added it to user.money
-
     await user.save();
 
-    res.json({ message: "Bet added to history successfully" }); // Avoid sending full user object back
+    res.json({ message: "Bet added to history successfully" });
   } catch (error) {
     console.error("Add Bet Error:", error);
     res.status(500).json({ message: "Error adding bet to history", error: error.message });
@@ -157,11 +174,15 @@ const addBetToHistory = async (req, res) => {
 // Get user bet history
 const getBetHistory = async (req, res) => {
   try {
-    const { userId } = req.params;
-     // Select necessary fields and sort history newest first
-    const user = await User.findOne({ userId }).select("betHistory totalBets")
-                           .populate({ path: 'betHistory', options: { sort: { 'createdAt': -1 } } });
+    const { id } = req.params;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(id)
+      .select("betHistory totalBets")
+      .sort({ "betHistory.createdAt": -1 });
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -175,11 +196,16 @@ const getBetHistory = async (req, res) => {
   }
 };
 
-// Delete User (unchanged)
+// Delete User
 const deleteUser = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const user = await User.findOneAndDelete({ userId });
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findByIdAndDelete(id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -190,176 +216,171 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// Edit User (unchanged, but consider password handling)
+// Edit User
 const editUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const updateData = req.body;
 
-    // IMPORTANT: Prevent password update through this endpoint unless specifically handled
-    if (updateData.password) {
-        return res.status(400).json({ message: "Password cannot be updated via this endpoint. Use a dedicated password change function." });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
-     // Prevent changing userId or money directly via this generic edit endpoint
-     delete updateData.userId;
-     delete updateData.money;
-     delete updateData.totalBets;
-     delete updateData.betHistory;
 
+    // Prevent changing critical fields
+    delete updateData.password;
+    delete updateData.money;
+    delete updateData.totalBets;
+    delete updateData.betHistory;
 
-    const updatedUser = await User.findOneAndUpdate(
-        { userId },
-        { $set: updateData }, // Use $set to update only provided fields
-        { new: true, runValidators: true } // Return updated doc and run schema validators
-    ).select("-password"); // Exclude password from response
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select("-password -__v");
 
     if (!updatedUser) return res.status(404).json({ message: "User not found" });
 
-    res.json({ message: "User updated successfully", user: updatedUser }); // Return updated user data
+    res.json({ 
+      message: "User updated successfully", 
+      user: updatedUser 
+    });
   } catch (error) {
     console.error("Edit User Error:", error);
-     // Check for validation errors
     if (error.name === 'ValidationError') {
-        return res.status(400).json({ message: "Validation Error", errors: error.errors });
+      return res.status(400).json({ message: "Validation Error", errors: error.errors });
     }
     res.status(400).json({ message: "Error updating user", error: error.message });
   }
 };
 
-
-// Check if User ID exists (unchanged)
+// Check if User ID exists
 const checkUserIdExists = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
 
-    // Use exists for efficiency if you only need true/false
-    const userExists = await User.exists({ userId });
-
-    if (!userExists) {
-      return res.status(404).json({ exists: false, message: "User ID does not exist" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ exists: false, message: "Invalid user ID format" });
     }
 
-    res.status(200).json({ exists: true, message: "User ID exists" });
+    const userExists = await User.exists({ _id: id });
+
+    res.status(200).json({ exists: !!userExists });
   } catch (error) {
     console.error("Check User ID Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// Add money to user account (unchanged)
-// NOTE: Consider adding transaction history for deposits
+// Add money to user account
 const addMoneyToUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { amount } = req.body;
 
-    // Validate amount more strictly
-    const depositAmount = parseFloat(amount);
-    if (isNaN(depositAmount) || depositAmount <= 0) {
-        return res.status(400).json({ message: "Invalid deposit amount" });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    // Use findOneAndUpdate for atomicity
-    const updatedUser = await User.findOneAndUpdate(
-      { userId },
-      { $inc: { money: depositAmount } }, // Increment money
-      { new: true } // Return the updated document
-    ).select("money"); // Select only the money field
+    const depositAmount = parseFloat(amount);
+    if (isNaN(depositAmount) || depositAmount <= 0) {
+      return res.status(400).json({ message: "Invalid deposit amount" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $inc: { money: depositAmount } },
+      { new: true }
+    ).select("money");
 
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
     }
 
-     // TODO: Log this deposit in a separate Transaction collection
-
-    res.json({ message: "Money added successfully", updatedBalance: updatedUser.money });
+    res.json({ 
+      message: "Money added successfully", 
+      updatedBalance: updatedUser.money 
+    });
   } catch (error) {
     console.error("Add Money Error:", error);
     res.status(500).json({ message: "Error adding money", error: error.message });
   }
 };
 
-
-// Deduct money from user account (unchanged)
-// NOTE: Consider adding transaction history for withdrawals
+// Deduct money from user account
 const deductMoneyFromUser = async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { id } = req.params;
     const { amount } = req.body;
 
-    // Validate amount more strictly
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
     const withdrawalAmount = parseFloat(amount);
     if (isNaN(withdrawalAmount) || withdrawalAmount <= 0) {
-        return res.status(400).json({ message: "Invalid withdrawal amount" });
+      return res.status(400).json({ message: "Invalid withdrawal amount" });
     }
 
-    // Use findOneAndUpdate with condition for atomicity and balance check
     const updatedUser = await User.findOneAndUpdate(
-        { userId, money: { $gte: withdrawalAmount } }, // Find user only if balance is sufficient
-        { $inc: { money: -withdrawalAmount } }, // Decrement money
-        { new: true } // Return the updated document
-    ).select("money"); // Select only the money field
-
+      { _id: id, money: { $gte: withdrawalAmount } },
+      { $inc: { money: -withdrawalAmount } },
+      { new: true }
+    ).select("money");
 
     if (!updatedUser) {
-        // If user not found OR balance was insufficient
-        const userExists = await User.exists({ userId });
-        if (!userExists) {
-            return res.status(404).json({ message: "User not found" });
-        } else {
-            return res.status(400).json({ message: "Insufficient balance" });
-        }
+      const userExists = await User.exists({ _id: id });
+      if (!userExists) {
+        return res.status(404).json({ message: "User not found" });
+      } else {
+        return res.status(400).json({ message: "Insufficient balance" });
+      }
     }
 
-    // TODO: Log this withdrawal in a separate Transaction collection
-
-    res.json({ message: "Money deducted successfully", updatedBalance: updatedUser.money });
+    res.json({ 
+      message: "Money deducted successfully", 
+      updatedBalance: updatedUser.money 
+    });
   } catch (error) {
     console.error("Deduct Money Error:", error);
     res.status(500).json({ message: "Error deducting money", error: error.message });
   }
 };
 
-// Transfer money from user to admin (unchanged)
+// Transfer money from user to admin
 const transferToAdmin = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { amount, adminId } = req.body; // Assuming adminId identifies the target admin
+    const { id } = req.params;
+    const { amount, adminId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(adminId)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
 
     const transferAmount = parseFloat(amount);
     if (isNaN(transferAmount) || transferAmount <= 0) {
-        return res.status(400).json({ message: "Invalid transfer amount" });
-    }
-    if (!adminId) {
-        return res.status(400).json({ message: "Admin ID is required" });
+      return res.status(400).json({ message: "Invalid transfer amount" });
     }
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
-    let userBalance, adminBalance;
-
     try {
-      // Find user and check balance atomically
       const user = await User.findOneAndUpdate(
-        { userId, money: { $gte: transferAmount } },
+        { _id: id, money: { $gte: transferAmount } },
         { $inc: { money: -transferAmount } },
         { new: true, session }
       );
 
       if (!user) {
-          await session.abortTransaction();
-          session.endSession();
-          // Check if user exists but had insufficient balance
-          const userExists = await User.findOne({ userId }).select('_id money');
-          if (!userExists) return res.status(404).json({ message: "Sender user not found" });
-          return res.status(400).json({ message: "Insufficient balance" });
+        await session.abortTransaction();
+        session.endSession();
+        const userExists = await User.exists({ _id: id });
+        if (!userExists) return res.status(404).json({ message: "Sender user not found" });
+        return res.status(400).json({ message: "Insufficient balance" });
       }
-      userBalance = user.money; // Balance after deduction
 
-      // Find admin and add money
-      const admin = await Admin.findOneAndUpdate(
-        { adminId }, // Make sure Admin model has 'adminId' field
+      const admin = await Admin.findByIdAndUpdate(
+        adminId,
         { $inc: { money: transferAmount } },
         { new: true, session }
       );
@@ -367,79 +388,65 @@ const transferToAdmin = async (req, res) => {
       if (!admin) {
         await session.abortTransaction();
         session.endSession();
-        // Rollback user deduction manually as findOneAndUpdate was outside transaction scope initially
-        // This highlights complexity - better to fetch both first then update if valid
-        await User.updateOne({ userId }, { $inc: { money: transferAmount } }); // Manual rollback attempt
+        await User.updateOne({ _id: id }, { $inc: { money: transferAmount } });
         return res.status(404).json({ message: "Recipient Admin not found" });
       }
-      adminBalance = admin.money; // Balance after addition
-
-      // TODO: Log this transfer in a Transaction collection
 
       await session.commitTransaction();
       session.endSession();
 
       res.json({
         message: "Money transferred to admin successfully",
-        userBalance: userBalance,
-        adminBalance: adminBalance
+        userBalance: user.money,
+        adminBalance: admin.money
       });
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
-      console.error("Transfer to Admin Transaction Error:", error); // Log the specific error
-      res.status(500).json({ message: "Transaction failed during transfer", error: error.message }); // Return specific error
+      console.error("Transfer to Admin Transaction Error:", error);
+      res.status(500).json({ message: "Transaction failed during transfer", error: error.message });
     }
   } catch (error) {
-    // Catch errors initiating the session or outside the transaction block
     console.error("Transfer to Admin Error:", error);
     res.status(500).json({ message: "Error initiating transfer", error: error.message });
   }
 };
 
-
-// Transfer money from user to member (unchanged)
-// Apply similar transaction improvements as transferToAdmin
+// Transfer money from user to member
 const transferToMember = async (req, res) => {
   try {
-    const { userId } = req.params;
-    const { amount, memberId } = req.body; // Assuming memberId identifies the target member
+    const { id } = req.params;
+    const { amount, memberId } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id) || !mongoose.Types.ObjectId.isValid(memberId)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
 
     const transferAmount = parseFloat(amount);
-     if (isNaN(transferAmount) || transferAmount <= 0) {
-        return res.status(400).json({ message: "Invalid transfer amount" });
+    if (isNaN(transferAmount) || transferAmount <= 0) {
+      return res.status(400).json({ message: "Invalid transfer amount" });
     }
-     if (!memberId) {
-        return res.status(400).json({ message: "Member ID is required" });
-    }
-
 
     const session = await mongoose.startSession();
     session.startTransaction();
-    let userBalance, memberBalance;
 
     try {
-      // Find user and check balance atomically before deduction
-       const user = await User.findOneAndUpdate(
-        { userId, money: { $gte: transferAmount } },
+      const user = await User.findOneAndUpdate(
+        { _id: id, money: { $gte: transferAmount } },
         { $inc: { money: -transferAmount } },
         { new: true, session }
       );
 
-
       if (!user) {
         await session.abortTransaction();
         session.endSession();
-         const userExists = await User.findOne({ userId }).select('_id money');
-         if (!userExists) return res.status(404).json({ message: "Sender user not found" });
-         return res.status(400).json({ message: "Insufficient balance" });
+        const userExists = await User.exists({ _id: id });
+        if (!userExists) return res.status(404).json({ message: "Sender user not found" });
+        return res.status(400).json({ message: "Insufficient balance" });
       }
-       userBalance = user.money;
 
-
-      // Find member and add money
-      const member = await Member.findOneAndUpdate(
-        { memberId }, // Make sure Member model has 'memberId' field
+      const member = await Member.findByIdAndUpdate(
+        memberId,
         { $inc: { money: transferAmount } },
         { new: true, session }
       );
@@ -447,68 +454,56 @@ const transferToMember = async (req, res) => {
       if (!member) {
         await session.abortTransaction();
         session.endSession();
-        // Attempt rollback (consider implications if this fails)
-         await User.updateOne({ userId }, { $inc: { money: transferAmount } });
+        await User.updateOne({ _id: id }, { $inc: { money: transferAmount } });
         return res.status(404).json({ message: "Recipient Member not found" });
       }
-       memberBalance = member.money;
-
-      // TODO: Log this transfer in a Transaction collection
 
       await session.commitTransaction();
       session.endSession();
 
       res.json({
         message: "Money transferred to member successfully",
-        userBalance: userBalance,
-        memberBalance: memberBalance
+        userBalance: user.money,
+        memberBalance: member.money
       });
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
-       console.error("Transfer to Member Transaction Error:", error);
+      console.error("Transfer to Member Transaction Error:", error);
       res.status(500).json({ message: "Transaction failed during transfer", error: error.message });
     }
   } catch (error) {
-     console.error("Transfer to Member Error:", error);
+    console.error("Transfer to Member Error:", error);
     res.status(500).json({ message: "Error initiating transfer", error: error.message });
   }
 };
 
-
-// Apply referral bonus (internal function, unchanged)
-// Consider making bonus amount configurable
+// Internal function for referral bonus
 const applyReferralBonus = async (referralCode, referredUserId) => {
   try {
-    if (!referralCode || !referredUserId || referralCode === referredUserId) return; // Prevent self-referral
+    if (!referralCode || !referredUserId || referralCode === referredUserId.toString()) return;
 
-    const bonusAmount = parseFloat(process.env.REFERRAL_BONUS_AMOUNT) || 100; // Configurable bonus
-
+    const bonusAmount = parseFloat(process.env.REFERRAL_BONUS_AMOUNT) || 100;
 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // Ensure referrer exists and is not the referred user
       const referrer = await User.findOneAndUpdate(
-        { userId: referralCode, userId: { $ne: referredUserId } }, // Find referrer, ensure not self
-        { $inc: { money: bonusAmount } }, // Add bonus to referrer
+        { _id: referralCode, _id: { $ne: referredUserId } },
+        { $inc: { money: bonusAmount } },
         { new: true, session }
       );
 
-      // Ensure referred user exists
-      const referred = await User.findOneAndUpdate(
-        { userId: referredUserId },
-        { $inc: { money: bonusAmount } }, // Add bonus to referred user
+      const referred = await User.findByIdAndUpdate(
+        referredUserId,
+        { $inc: { money: bonusAmount } },
         { new: true, session }
       );
 
-
-      // Only commit if both referrer and referred were found and updated
       if (referrer && referred) {
-         // TODO: Log referral bonus transaction for both users
         await session.commitTransaction();
-         console.log(`Referral bonus of ${bonusAmount} applied to ${referrer.userId} and ${referred.userId}`);
+        console.log(`Referral bonus of ${bonusAmount} applied to ${referrer._id} and ${referred._id}`);
       } else {
         await session.abortTransaction();
         if (!referrer) console.log(`Referrer (${referralCode}) not found or was same as referred user.`);
@@ -519,22 +514,18 @@ const applyReferralBonus = async (referralCode, referredUserId) => {
     } catch (error) {
       await session.abortTransaction();
       session.endSession();
-      // Re-throw for outer catch block
       throw error;
     }
   } catch (error) {
-    // Log errors related to referral bonus application specifically
     console.error(`Referral Bonus Application Error for ${referredUserId} via ${referralCode || 'N/A'}:`, error.message);
-    // Don't block signup if bonus fails, but log it thoroughly
   }
 };
-
 
 module.exports = {
   signup,
   login,
   findUserById,
-  getUserBalance, // <-- Added function export
+  getUserBalance,
   addBetToHistory,
   getBetHistory,
   deleteUser,
@@ -544,5 +535,4 @@ module.exports = {
   deductMoneyFromUser,
   transferToAdmin,
   transferToMember
-  // applyReferralBonus is internal, usually not exported for direct API use
 };

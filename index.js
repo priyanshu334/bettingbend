@@ -7,6 +7,7 @@ const memberRoutes = require("./routes/memberRoutes")
 const adminRoutes = require("./routes/adminRoutes")
 const gameRoutes = require("./routes/gameRoutes");
 const betRoutes = require("./routes/bet");
+const Matchdata = require("./routes/MatchDataRoutes");
 
 dotenv.config();
 connectDB();
@@ -38,6 +39,7 @@ app.use("/api/members",memberRoutes)
 app.use("/api/bet", betRoutes);
 app.use("/api/admin",adminRoutes)
 app.use("/api/games", gameRoutes);
+app.use("/api/matchdata",Matchdata)
 app.get("/",(req,res)=>{
     res.send("Hello")
 })

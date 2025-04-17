@@ -41,13 +41,13 @@ router.delete("/delete/:userId", authenticateUser, deleteUser); // Consider addi
 router.put("/edit/:userId", authenticateUser, editUser); // Consider adding role checks (e.g., only self)
 
 // --- Money management routes (require authentication) ---
-router.post("/:userId/add-money", authenticateUser, addMoneyToUser); // Consider role checks (e.g., admin only?)
+router.post("/:userId/add-money", addMoneyToUser); // Consider role checks (e.g., admin only?)
 router.post("/:userId/deduct-money", authenticateUser, deductMoneyFromUser); // Consider role checks (e.g., admin only?)
 router.post("/:userId/transfer-to-admin", authenticateUser, transferToAdmin); // Should be authenticated as the user
 router.post("/:userId/transfer-to-member", authenticateUser, transferToMember); // Should be authenticated as the user
 
 // --- Bet management routes (require authentication) ---
-router.post("/:userId/add-bet", authenticateUser, addBetToHistory); // Likely okay for user self-service
+router.post("/:userId/add-bet", addBetToHistory); // Likely okay for user self-service
 router.get("/:userId/bet-history", authenticateUser, getBetHistory); // Likely okay for user self-service
 
 module.exports = router;
