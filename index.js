@@ -8,6 +8,10 @@ const adminRoutes = require("./routes/adminRoutes")
 const gameRoutes = require("./routes/gameRoutes");
 const betRoutes = require("./routes/bet");
 const Matchdata = require("./routes/MatchDataRoutes");
+const boundaryBet = require("./routes/boundaryBetRoutes");
+const bowlerRunsBet = require("./routes/bowlerRunsBetRoutes");
+const playerRunsBet = require("./routes/playerRunsBetRoutes");
+const wicketBet = require("./routes/playerWicketsBetRoutes");
 
 dotenv.config();
 connectDB();
@@ -40,6 +44,10 @@ app.use("/api/bet", betRoutes);
 app.use("/api/admin",adminRoutes)
 app.use("/api/games", gameRoutes);
 app.use("/api/matchdata",Matchdata)
+app.use("/api/boundarybet",boundaryBet)
+app.use("/api/bowlerruns",bowlerRunsBet)
+app.use("/api/playerruns",playerRunsBet)
+app.use("/api/playerwicket",wicketBet)
 
 app.get("/",(req,res)=>{
     res.send("Hello")

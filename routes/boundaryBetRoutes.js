@@ -6,7 +6,7 @@ const router = express.Router();
 const {
   placeBoundaryBet,
   settleBoundaryBets,
-} = require("../controllers/boundaryBetController");
+} = require("../controller/BoundryBetController");
 
 // 🔹 POST: Place a Boundary Bet
 router.post("/place", placeBoundaryBet);

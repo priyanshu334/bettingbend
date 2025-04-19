@@ -1,4 +1,4 @@
-const BowlerRunsBet = require("../models/BowlerRunsBet");
+const BowlerRunsBet = require("../models/BowlerRuns");
 const User = require("../models/user");
 const axios = require("axios");
 const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;

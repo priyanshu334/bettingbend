@@ -6,7 +6,7 @@ const router = express.Router();
 const {
   placePlayerWicketsBet,
   settlePlayerWicketsBets,
-} = require("../controllers/playerWicketsBetController");
+} = require("../controller/PlayerWicketsController");
 
 // 🔹 POST: Place a Player Wickets Bet
 router.post("/place", placePlayerWicketsBet);

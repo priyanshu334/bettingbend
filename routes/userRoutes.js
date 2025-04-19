@@ -15,7 +15,6 @@ const {
   getUserById           // Add this
 } = require("../controller/userController");
 const authenticateUser = require("../middleware/userAuth");
-const authenticateAdmin = require("../middleware/adminAuth"); // You might want to add this for admin routes
 
 const router = express.Router();
 
@@ -28,7 +27,7 @@ router.get("/check-id/:userId", checkUserIdExists);
 router.get("/check-phone/:phone", authenticateUser, findUserByPhoneNumber); // Alternative phone check
 
 // --- User data routes ---
-router.get("/", authenticateAdmin, getAllUsers); // Admin-only route to get all users
+router.get("/", getAllUsers); // Admin-only route to get all users
 router.get("/:userId", authenticateUser, getUserById); // Get user by ID
 router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber); // Get user by phone
 
