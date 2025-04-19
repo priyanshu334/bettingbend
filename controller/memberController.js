@@ -104,4 +104,47 @@ const deleteMember = async (req, res) => {
   }
 };
 
-module.exports = { memberSignup, memberLogin, getMemberById, getAllMembers, deleteMember };
+// ✅ Update Member
+const updateMember = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { fullName, phone, password, money } = req.body;
+
+    // Find member
+    const member = await Member.findById(id);
+    if (!member) {
+      return res.status(404).json({ success: false, message: "Member not found" });
+    }
+
+    // Update fields if provided
+    if (fullName) member.fullName = fullName;
+    if (phone) member.phone = phone;
+    if (typeof money !== "undefined") member.money = money;
+
+    // If password is provided, hash it
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      member.password = hashedPassword;
+    }
+
+    await member.save();
+
+    // Remove password before sending response
+    const memberObj = member.toObject();
+    delete memberObj.password;
+
+    res.status(200).json({ success: true, message: "Member updated successfully", member: memberObj });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+
+module.exports = {
+  memberSignup,
+  memberLogin,
+  getMemberById,
+  getAllMembers,
+  deleteMember,
+  updateMember, // ← Added here
+};
