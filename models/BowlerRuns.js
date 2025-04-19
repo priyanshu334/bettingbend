@@ -1,6 +1,6 @@
 // models/BowlerRunsBet.ts
 
-import mongoose from 'mongoose';
+const mongoose = require("mongoose");
 
 const BowlerRunsBetSchema = new mongoose.Schema({
   userId: {
@@ -43,4 +43,4 @@ const BowlerRunsBetSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('BowlerRunsBet', BowlerRunsBetSchema);
+module.exports= mongoose.model('BowlerRunsBet', BowlerRunsBetSchema);

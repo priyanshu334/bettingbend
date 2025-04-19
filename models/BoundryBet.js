@@ -1,6 +1,6 @@
 // models/BoundaryBet.ts
 
-import mongoose from 'mongoose';
+const mongoose = require("mongoose")
 
 const BoundaryBetSchema = new mongoose.Schema({
   userId: {
@@ -43,4 +43,4 @@ const BoundaryBetSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('BoundaryBet', BoundaryBetSchema);
+module.exports =  mongoose.model('BoundaryBet', BoundaryBetSchema);

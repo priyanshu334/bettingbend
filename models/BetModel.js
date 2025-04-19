@@ -1,5 +1,5 @@
 // models/Bet.js
-import mongoose from 'mongoose';
+const mongoose = require("mongoose")
 
 const betSchema = new mongoose.Schema({
   title: String,
@@ -17,4 +17,4 @@ const betSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model('Bet', betSchema);
+module.exports=  mongoose.model('Bet', betSchema);
