@@ -4,19 +4,18 @@ const {
   login,
   deleteUser,
   editUser,
-  findUserById,
+  findUserByPhoneNumber,
   checkUserIdExists,
-  addMoneyToUser,
-  deductMoneyFromUser,
-  transferToAdmin,
-  transferToMember,
+  addMoney,
+  withdrawMoney,
   addBetToHistory,
   getBetHistory,
-  getUserBalance // <-- Import the new function
-} = require("../controller/userController"); // Ensure path is correct
-// Ensure the path to your middleware is correct
-// If your middleware is named userAuth.js and exports authenticateUser:
+  getUserBalance,
+  getAllUsers,          // Add this
+  getUserById           // Add this
+} = require("../controller/userController");
 const authenticateUser = require("../middleware/userAuth");
+const authenticateAdmin = require("../middleware/adminAuth"); // You might want to add this for admin routes
 
 const router = express.Router();
 
@@ -25,29 +24,25 @@ router.post("/signup", signup);
 router.post("/login", login);
 
 // --- User verification ---
-// Consider if this needs authentication depending on your use case
 router.get("/check-id/:userId", checkUserIdExists);
+router.get("/check-phone/:phone", authenticateUser, findUserByPhoneNumber); // Alternative phone check
 
-// --- Authenticated user routes ---
-// General user info (already exists)
-router.get("/:userId", authenticateUser, findUserById);
+// --- User data routes ---
+router.get("/", authenticateAdmin, getAllUsers); // Admin-only route to get all users
+router.get("/:userId", authenticateUser, getUserById); // Get user by ID
+router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber); // Get user by phone
 
-// *** ADDED ROUTE FOR BALANCE ***
-// Get user balance
-router.get("/:userId/balance", authenticateUser, getUserBalance);
+// --- Balance routes ---
+router.get("/:userId/balance", authenticateUser, getUserBalance); // Get balance by user ID
+router.post("/add-money", authenticateUser, addMoney); // Uses phone from request body
+router.post("/withdraw-money", authenticateUser, withdrawMoney); // Uses phone from request body
 
-// User management (require authentication)
-router.delete("/delete/:userId", authenticateUser, deleteUser); // Consider adding role checks (e.g., only admin or self)
-router.put("/edit/:userId", authenticateUser, editUser); // Consider adding role checks (e.g., only self)
+// --- User management ---
+router.delete("/:userId", authenticateUser, deleteUser);
+router.put("/:userId", authenticateUser, editUser);
 
-// --- Money management routes (require authentication) ---
-router.post("/:userId/add-money", addMoneyToUser); // Consider role checks (e.g., admin only?)
-router.post("/:userId/deduct-money", authenticateUser, deductMoneyFromUser); // Consider role checks (e.g., admin only?)
-router.post("/:userId/transfer-to-admin", authenticateUser, transferToAdmin); // Should be authenticated as the user
-router.post("/:userId/transfer-to-member", authenticateUser, transferToMember); // Should be authenticated as the user
-
-// --- Bet management routes (require authentication) ---
-router.post("/:userId/add-bet", addBetToHistory); // Likely okay for user self-service
-router.get("/:userId/bet-history", authenticateUser, getBetHistory); // Likely okay for user self-service
+// --- Bet management ---
+router.post("/:userId/bets", authenticateUser, addBetToHistory); // Add bet for specific user
+router.get("/:userId/bets", authenticateUser, getBetHistory); // Get bet history for user
 
 module.exports = router;

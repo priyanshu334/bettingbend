@@ -40,6 +40,7 @@ app.use("/api/bet", betRoutes);
 app.use("/api/admin",adminRoutes)
 app.use("/api/games", gameRoutes);
 app.use("/api/matchdata",Matchdata)
+
 app.get("/",(req,res)=>{
     res.send("Hello")
 })
