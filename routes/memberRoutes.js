@@ -8,8 +8,8 @@ router.post("/signup", memberSignup);
 router.post("/login", memberLogin);
 
 // ✅ Protected Routes
-router.get("/:id", authenticateUser, authorizeRole(["admin", "member"]), getMemberById);
-router.get("/", authenticateUser, authorizeRole(["admin"]), getAllMembers);
-router.delete("/:id", authenticateUser, authorizeRole(["admin"]), deleteMember);
+router.get("/:id", getMemberById);
+router.get("/", getAllMembers);
+router.delete("/:id",  deleteMember);
 
 module.exports = router;
