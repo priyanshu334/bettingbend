@@ -28,20 +28,20 @@ router.get("/check-phone/:phone", authenticateUser, findUserByPhoneNumber); // A
 
 // --- User data routes ---
 router.get("/", getAllUsers); // Admin-only route to get all users
-router.get("/:userId", authenticateUser, getUserById); // Get user by ID
-router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber); // Get user by phone
+router.get("/:userId", getUserById); // Get user by ID
+router.get("/phone/:phone",  findUserByPhoneNumber); // Get user by phone
 
 // --- Balance routes ---
-router.get("/:userId/balance", authenticateUser, getUserBalance); // Get balance by user ID
-router.post("/add-money", authenticateUser, addMoney); // Uses phone from request body
-router.post("/withdraw-money", authenticateUser, withdrawMoney); // Uses phone from request body
+router.get("/:userId/balance",  getUserBalance); // Get balance by user ID
+router.post("/add-money",  addMoney); // Uses phone from request body
+router.post("/withdraw-money",  withdrawMoney); // Uses phone from request body
 
 // --- User management ---
-router.delete("/:userId", authenticateUser, deleteUser);
-router.put("/:userId", authenticateUser, editUser);
+router.delete("/:userId",  deleteUser);
+router.put("/:userId",  editUser);
 
 // --- Bet management ---
-router.post("/:userId/bets", authenticateUser, addBetToHistory); // Add bet for specific user
-router.get("/:userId/bets", authenticateUser, getBetHistory); // Get bet history for user
+router.post("/:userId/bets",  addBetToHistory); // Add bet for specific user
+router.get("/:userId/bets",  getBetHistory); // Get bet history for user
 
 module.exports = router;
