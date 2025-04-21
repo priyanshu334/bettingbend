@@ -15,7 +15,7 @@ const {
   getUserById
 } = require("../controller/userController");
 const authenticateUser = require("../middleware/userAuth");
-const authenticateAdmin = require("../middleware/adminAuth"); // Add this if you have admin auth
+const authenticateAdmin = require("../middleware/AuthMiddleware"); // Add this if you have admin auth
 
 const router = express.Router();
 
