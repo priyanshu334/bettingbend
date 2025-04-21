@@ -11,10 +11,11 @@ const {
   addBetToHistory,
   getBetHistory,
   getUserBalance,
-  getAllUsers,          // Add this
-  getUserById           // Add this
+  getAllUsers,
+  getUserById
 } = require("../controller/userController");
 const authenticateUser = require("../middleware/userAuth");
+const authenticateAdmin = require("../middleware/adminAuth"); // Add this if you have admin auth
 
 const router = express.Router();
 
@@ -24,24 +25,24 @@ router.post("/login", login);
 
 // --- User verification ---
 router.get("/check-id/:userId", checkUserIdExists);
-router.get("/check-phone/:phone", authenticateUser, findUserByPhoneNumber); // Alternative phone check
+// Remove the duplicate phone check route
 
 // --- User data routes ---
-router.get("/", getAllUsers); // Admin-only route to get all users
-router.get("/:userId", getUserById); // Get user by ID
-router.get("/phone/:phone",  findUserByPhoneNumber); // Get user by phone
+router.get("/", authenticateAdmin, getAllUsers); // Admin-only
+router.get("/:userId", authenticateUser, getUserById);
+router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber);
 
 // --- Balance routes ---
-router.get("/:userId/balance",  getUserBalance); // Get balance by user ID
-router.post("/add-money",  addMoney); // Uses phone from request body
-router.post("/withdraw-money",  withdrawMoney); // Uses phone from request body
+router.get("/:userId/balance", authenticateUser, getUserBalance);
+router.post("/add-money", authenticateUser, addMoney);
+router.post("/withdraw-money", authenticateUser, withdrawMoney);
 
 // --- User management ---
-router.delete("/:userId",  deleteUser);
-router.put("/:userId",  editUser);
+router.delete("/:userId", authenticateUser, deleteUser);
+router.put("/:userId", authenticateUser, editUser);
 
 // --- Bet management ---
-router.post("/:userId/bets",  addBetToHistory); // Add bet for specific user
-router.get("/:userId/bets",  getBetHistory); // Get bet history for user
+router.post("/:userId/bets", authenticateUser, addBetToHistory);
+router.get("/:userId/bets", authenticateUser, getBetHistory);
 
 module.exports = router;
