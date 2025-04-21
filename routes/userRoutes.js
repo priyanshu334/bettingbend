@@ -28,7 +28,7 @@ router.get("/check-id/:userId", checkUserIdExists);
 // Remove the duplicate phone check route
 
 // --- User data routes ---
-router.get("/", authenticateAdmin, getAllUsers); // Admin-only
+router.get("/", getAllUsers); // Admin-only
 router.get("/:userId", authenticateUser, getUserById);
 router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber);
 
