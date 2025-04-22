@@ -1,11 +1,12 @@
 const express = require('express');
 const { placeBet } = require('../controller/MatchdataController');
 const { settleMatchBets } = require('../controller/MatchdataController');  
+const authenticateUser = require("../middleware/userAuth");
 
 const router = express.Router();
 
 // Route to place a bet
-router.post('/bet', placeBet);
+router.post('/bet',authenticateUser ,placeBet);
 
 // Route to settle match bets (based on match result)
 router.post('/settle', async (req, res) => {

@@ -12,10 +12,12 @@ const {
   getBetHistory,
   getUserBalance,
   getAllUsers,
-  getUserById
+  getUserById,
+  changePassword, // <- added this
 } = require("../controller/userController");
+
 const authenticateUser = require("../middleware/userAuth");
-const authenticateAdmin = require("../middleware/AuthMiddleware"); // Add this if you have admin auth
+const authenticateAdmin = require("../middleware/AuthMiddleware");
 
 const router = express.Router();
 
@@ -25,7 +27,6 @@ router.post("/login", login);
 
 // --- User verification ---
 router.get("/check-id/:userId", checkUserIdExists);
-// Remove the duplicate phone check route
 
 // --- User data routes ---
 router.get("/", getAllUsers); // Admin-only
@@ -40,6 +41,7 @@ router.post("/withdraw-money", authenticateUser, withdrawMoney);
 // --- User management ---
 router.delete("/:userId", authenticateUser, deleteUser);
 router.put("/:userId", authenticateUser, editUser);
+router.post("/change-password", authenticateUser, changePassword); // <- added this
 
 // --- Bet management ---
 router.post("/:userId/bets", authenticateUser, addBetToHistory);

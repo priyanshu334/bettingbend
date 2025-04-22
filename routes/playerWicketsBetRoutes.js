@@ -7,9 +7,10 @@ const {
   placePlayerWicketsBet,
   settlePlayerWicketsBets,
 } = require("../controller/PlayerWicketsController");
+const authenticateUser = require("../middleware/userAuth");
 
 // 🔹 POST: Place a Player Wickets Bet
-router.post("/place", placePlayerWicketsBet);
+router.post("/place",authenticateUser ,placePlayerWicketsBet);
 
 // 🔹 POST: Settle Player Wickets Bets (admin/internal)
 router.post("/settle", async (req, res) => {

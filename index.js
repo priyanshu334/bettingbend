@@ -12,6 +12,7 @@ const boundaryBet = require("./routes/boundaryBetRoutes");
 const bowlerRunsBet = require("./routes/bowlerRunsBetRoutes");
 const playerRunsBet = require("./routes/playerRunsBetRoutes");
 const wicketBet = require("./routes/playerWicketsBetRoutes");
+const RunsAndWickets = require("./routes/RunsandWicketRoute")
 
 dotenv.config();
 connectDB();
@@ -27,7 +28,10 @@ const allowedOrigins = [
   "https://betdashboard-njy6.vercel.app",
   "https://memberdash.vercel.app",
   "https://bettingfront-1yrd.vercel.app",
-  "http://localhost:3000"
+  "http://localhost:3000",
+  "https://bettingfrontend-blush.vercel.app",
+  "https://bettingdash.vercel.app",
+  "https://bettingmemberdash.vercel.app",
 ];
 
 
@@ -38,7 +42,7 @@ app.use(
   })
 );
 
-app.use("/api/user", userRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/members",memberRoutes)
 app.use("/api/bet", betRoutes);
 app.use("/api/admin",adminRoutes)
@@ -48,6 +52,7 @@ app.use("/api/boundarybet",boundaryBet)
 app.use("/api/bowlerruns",bowlerRunsBet)
 app.use("/api/playerruns",playerRunsBet)
 app.use("/api/playerwicket",wicketBet)
+app.use("/api/RunsAndWickets",RunsAndWickets)
 
 app.get("/",(req,res)=>{
     res.send("Hello")

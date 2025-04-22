@@ -4,25 +4,34 @@ const Member = require("../models/member");
 
 const authenticateUser = async (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
-    if (!token) return res.status(401).json({ success: false, message: "No token provided" });
+    const authHeader = req.header("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ success: false, message: "No token provided" });
+    }
 
-    const decoded = jwt.verify(token, "your_secret_key"); // Replace with ENV variable
+    const token = authHeader.replace("Bearer ", "").trim();
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // ✅ Use env variable
 
-    let user = await Admin.findById(decoded.id) || await Member.findById(decoded.id);
+    let user = await Admin.findById(decoded.id);
+    if (!user) {
+      user = await Member.findById(decoded.id);
+    }
 
-    if (!user) return res.status(401).json({ success: false, message: "Invalid token" });
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User not found or invalid token" });
+    }
 
     req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ success: false, message: "Invalid token" });
+    console.error("Auth error:", error.message);
+    return res.status(401).json({ success: false, message: "Authentication failed" });
   }
 };
 
-const authorizeRole = (roles) => {
+const authorizeRole = (roles = []) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    if (!req.user || !roles.includes(req.user.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
     next();

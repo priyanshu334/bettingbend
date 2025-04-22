@@ -1,46 +1,65 @@
-const Bet = require("../models/MatchdataModel");
+const RunsAndWickets = require("../models/MatchRunsWiicketsModel");
 const User = require("../models/user");
-
 const axios = require("axios");
+
 const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 
 // 1️⃣ Place a Bet
+
 const placeBet = async (req, res) => {
   try {
-    const { userId, matchId, teamId, marketType, betCondition, overs, statType, odds, amount } = req.body;
+    const {
+      userId,
+      matchId,
+      teamId, // Optional field
+      marketType,
+      betCondition,
+      overs,
+      statType, // Optional field
+      odds,
+      amount
+    } = req.body;
 
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.money < amount) return res.status(400).json({ message: "Insufficient balance" });
+    // Check balance
+    if (user.money < amount) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
 
-    // Deduct money from user
+    // Deduct bet amount
     user.money -= amount;
     await user.save();
 
-    // Create the bet
-    const newBet = new Bet({
+    // Create and save bet
+    const newBet = new RunsAndWickets({
       userId,
-      matchId,
-      teamId,
+      matchId: Number(matchId),
+      teamId: teamId ? Number(teamId) : undefined,  // Optional teamId
       marketType,
       betCondition,
-      overs,
+      overs: overs ? Number(overs) : undefined,  // Optional overs
       statType,
       odds,
-      amount,
+      amount
     });
 
     await newBet.save();
 
-    res.status(201).json({ message: "Bet placed successfully", bet: newBet });
+    res.status(201).json({
+      message: "Bet placed successfully",
+      bet: newBet
+    });
   } catch (err) {
     console.error("Error placing bet:", err);
     res.status(500).json({ error: err.message });
   }
 };
 
+
+// 2️⃣ Settle Match Bets
 const settleMatchBets = async (fixtureId, matchId) => {
   try {
     const { data } = await axios.get(
@@ -51,7 +70,10 @@ const settleMatchBets = async (fixtureId, matchId) => {
     const tossWinnerId = matchData.tosswon_id;
     const matchWinnerId = matchData.winner_team_id;
 
-    const allUnsettledBets = await Bet.find({ matchId, resultChecked: false });
+    const allUnsettledBets = await RunsAndWickets.find({
+      matchId: Number(matchId),
+      resultChecked: false,
+    });
 
     let settledCount = 0;
 
@@ -78,7 +100,22 @@ const settleMatchBets = async (fixtureId, matchId) => {
           }
           break;
 
-        // Add cases for other market types as needed
+        // Handle the new bet types
+        case "runs_at_over":
+        case "wickets_at_over":
+          // Logic to settle bets based on specific overs data
+          // For example, match data can provide runs at specific overs
+          // You will need to fetch overs data and compare it with betCondition
+          break;
+
+        case "total_match_runs":
+        case "total_match_wickets":
+        case "total_match_4s":
+        case "total_match_6s":
+          // Logic to settle bets based on total match statistics
+          // For example, fetching total runs, wickets, etc., and comparing it with betCondition
+          break;
+
         default:
           console.warn(`⚠️ Unknown or unsupported marketType: ${bet.marketType}`);
       }
@@ -88,12 +125,12 @@ const settleMatchBets = async (fixtureId, matchId) => {
         continue;
       }
 
-      // Mark bet as settled
+      // Settle bet
       bet.status = isWin ? "won" : "lost";
       bet.resultChecked = true;
       await bet.save();
 
-      // Update user balance
+      // If user wins, update balance
       if (isWin) {
         const winnings = bet.amount * bet.odds;
         user.money += winnings;
@@ -112,7 +149,8 @@ const settleMatchBets = async (fixtureId, matchId) => {
   }
 };
 
+
 module.exports = {
   placeBet,
-  settleMatchBets
+  settleMatchBets,
 };

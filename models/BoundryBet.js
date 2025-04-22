@@ -1,46 +1,52 @@
-// models/BoundaryBet.ts
-
-const mongoose = require("mongoose")
+const mongoose = require("mongoose");
 
 const BoundaryBetSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
   matchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Match',
-    required: true
+    required: true,
   },
   teamName: {
     type: String,
-    required: true
+    required: true,
   },
   playerName: {
     type: String,
-    required: true
+    required: true,
   },
   predictedBoundaries: {
     type: Number,
-    required: true
+    required: true,
   },
   betAmount: {
     type: Number,
-    required: true
+    required: true,
   },
   isWon: {
     type: Boolean,
-    default: null // will be set after match
+    default: null,
   },
   payoutAmount: {
     type: Number,
-    default: 0
+    default: 0,
+  },
+  resultChecked: {
+    type: Boolean,
+    default: false,
+  },
+  status: {
+    type: String, // 'won', 'lost'
+    default: 'pending',
   },
   createdAt: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-module.exports =  mongoose.model('BoundaryBet', BoundaryBetSchema);
+module.exports = mongoose.model('BoundaryBet', BoundaryBetSchema);

@@ -1,4 +1,4 @@
-// models/BowlerRunsBet.ts
+// models/BowlerRunsBet.js
 
 const mongoose = require("mongoose");
 
@@ -25,17 +25,30 @@ const BowlerRunsBetSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  actualRunsConceded: {
+    type: Number,
+    default: null
+  },
   betAmount: {
     type: Number,
     required: true
   },
   isWon: {
     type: Boolean,
-    default: null // To be set after match result
+    default: null
   },
   payoutAmount: {
     type: Number,
     default: 0
+  },
+  betStatus: {
+    type: String,
+    enum: ["pending", "won", "lost"],
+    default: "pending"
+  },
+  settledAt: {
+    type: Date,
+    default: null
   },
   createdAt: {
     type: Date,
@@ -43,4 +56,4 @@ const BowlerRunsBetSchema = new mongoose.Schema({
   }
 });
 
-module.exports= mongoose.model('BowlerRunsBet', BowlerRunsBetSchema);
+module.exports = mongoose.model('BowlerRunsBet', BowlerRunsBetSchema);

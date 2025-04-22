@@ -8,14 +8,18 @@ const placePlayerWicketsBet = async (req, res) => {
   try {
     const { userId, matchId, teamName, playerName, predictedWickets, betAmount } = req.body;
 
+    // Validate if the user exists
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Check if user has enough balance
     if (user.money < betAmount) return res.status(400).json({ message: "Insufficient balance" });
 
+    // Deduct the bet amount from the user's balance
     user.money -= betAmount;
     await user.save();
 
+    // Create a new bet for player wickets
     const newBet = new PlayerWicketsBet({
       userId,
       matchId,
@@ -25,9 +29,15 @@ const placePlayerWicketsBet = async (req, res) => {
       betAmount,
     });
 
+    // Save the bet to the database
     await newBet.save();
 
-    res.status(201).json({ message: "Player Wickets Bet placed successfully", bet: newBet });
+    // Send success response
+    res.status(201).json({ 
+      message: "Player Wickets Bet placed successfully", 
+      bet: newBet, 
+      newBalance: user.money 
+    });
   } catch (err) {
     console.error("Error placing player wickets bet:", err.message);
     res.status(500).json({ error: err.message });
@@ -46,6 +56,7 @@ const settlePlayerWicketsBets = async (fixtureId, matchId) => {
 
     let settled = 0;
 
+    // Loop through each bet to settle it
     for (const bet of bets) {
       const user = await User.findById(bet.userId);
       if (!user) continue;
@@ -63,6 +74,7 @@ const settlePlayerWicketsBets = async (fixtureId, matchId) => {
 
       const actualWickets = parseInt(playerStat.wickets, 10);
 
+      // Check if the bet is correct
       const isWin = actualWickets === bet.predictedWickets;
 
       bet.isWon = isWin;

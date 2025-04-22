@@ -7,9 +7,10 @@ const {
   placeBoundaryBet,
   settleBoundaryBets,
 } = require("../controller/BoundryBetController");
+const authenticateUser = require("../middleware/userAuth");
 
 // 🔹 POST: Place a Boundary Bet
-router.post("/place", placeBoundaryBet);
+router.post("/place",authenticateUser, placeBoundaryBet);
 
 // 🔹 POST: Settle Boundary Bets
 router.post("/settle", async (req, res) => {

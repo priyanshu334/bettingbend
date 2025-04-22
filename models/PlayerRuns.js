@@ -1,25 +1,28 @@
-// models/PlayerRunsBet.js
-
 const mongoose = require("mongoose");
 
 const playerRunsBetSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
+    required: true
   },
   matchId: {
     type: String,
     required: true,
   },
-  teamName: {
-    type: String,
+  playerId: {
+    type: Number,
     required: true,
   },
   playerName: {
     type: String,
     required: true,
   },
-  predictedRuns: {
+  betType: {
+    type: String,
+    required: true, // e.g., "50+": predicted that player will score 50+
+  },
+  odds: {
     type: Number,
     required: true,
   },

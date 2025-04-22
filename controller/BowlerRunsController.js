@@ -1,3 +1,5 @@
+// controllers/bowlerRunsBetController.js
+
 const BowlerRunsBet = require("../models/BowlerRuns");
 const User = require("../models/user");
 const axios = require("axios");
@@ -55,7 +57,8 @@ const settleBowlerRunsBets = async (fixtureId, matchId) => {
       const bowler = bowlerStats.find(
         (b) =>
           b.team.name.toLowerCase() === bet.teamName.toLowerCase() &&
-          b.bowler && b.bowler.fullname.toLowerCase() === bet.bowlerName.toLowerCase()
+          b.bowler &&
+          b.bowler.fullname.toLowerCase() === bet.bowlerName.toLowerCase()
       );
 
       if (!bowler) {
@@ -63,11 +66,14 @@ const settleBowlerRunsBets = async (fixtureId, matchId) => {
         continue;
       }
 
-      const runsConceded = bowler.rate * bowler.overs; // OR use bowler.runs if available
+      const runsConceded = bowler.runs; // ✅ Use actual runs conceded
 
       const isWin = Math.round(runsConceded) === bet.predictedRunsConceded;
 
       bet.isWon = isWin;
+      bet.settledAt = new Date();
+      bet.actualRunsConceded = runsConceded;
+      bet.betStatus = isWin ? "won" : "lost";
 
       if (isWin) {
         const winnings = bet.betAmount * 2;
