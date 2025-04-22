@@ -6,8 +6,8 @@ const {
   editUser,
   findUserByPhoneNumber,
   checkUserIdExists,
-  addMoney,
-  withdrawMoney,
+  addMoneyByPhone,
+  withdrawMoneyByPhone,
   addBetToHistory,
   getBetHistory,
   getUserBalance,
@@ -35,8 +35,8 @@ router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber);
 
 // --- Balance routes ---
 router.get("/:userId/balance", authenticateUser, getUserBalance);
-router.post("/add-money", addMoney);
-router.post("/withdraw-money", withdrawMoney);
+router.post("/add-money", addMoneyByPhone);
+router.post("/withdraw-money", withdrawMoneyByPhone);
 
 // --- User management ---
 router.delete("/:userId", authenticateUser, deleteUser);

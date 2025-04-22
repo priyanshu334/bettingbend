@@ -168,58 +168,75 @@ const checkUserIdExists = async (req, res) => {
 };
 
 // Add money to user balance
-const addMoney = async (req, res) => {
+const addMoneyByPhone = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { amount } = req.body;
+    const { phone, amount } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid amount" });
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ error: "Invalid phone number" });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { money: amount } },
-      { new: true }
-    ).select("-password");
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
 
-    res.json(updatedUser);
+    // Find user by phone number
+    const user = await User.findOne({ phone });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Update balance
+    user.money += numericAmount;
+    await user.save();
+
+    res.json({
+      message: "Money added successfully",
+      newBalance: user.money,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
 
 // Withdraw money from user balance
-const withdrawMoney = async (req, res) => {
+const withdrawMoneyByPhone = async (req, res) => {
   try {
-    const { userId } = req.user;
-    const { amount } = req.body;
+    const { phone, amount } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({ message: "Invalid amount" });
+    if (!phone || !/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ error: "Invalid phone number" });
     }
 
-    const user = await User.findById(userId);
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    // Find user by phone number
+    const user = await User.findOne({ phone });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    if (user.money < amount) {
-      return res.status(400).json({ message: "Insufficient balance" });
+    // Check sufficient balance
+    if (user.money < numericAmount) {
+      return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $inc: { money: -amount } },
-      { new: true }
-    ).select("-password");
+    // Update balance
+    user.money -= numericAmount;
+    await user.save();
 
-    res.json(updatedUser);
+    res.json({
+      message: "Money withdrawn successfully",
+      userBalance: user.money,
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ error: error.message });
   }
 };
-
 // Add bet to user's history
 const addBetToHistory = async (req, res) => {
   try {
@@ -378,8 +395,8 @@ module.exports = {
   editUser,
   findUserByPhoneNumber,
   checkUserIdExists,
-  addMoney,
-  withdrawMoney,
+  addMoneyByPhone,
+  withdrawMoneyByPhone,
   addBetToHistory,
   getBetHistory,
   getUserBalance,
