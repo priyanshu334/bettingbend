@@ -35,8 +35,8 @@ router.get("/phone/:phone", authenticateUser, findUserByPhoneNumber);
 
 // --- Balance routes ---
 router.get("/:userId/balance", authenticateUser, getUserBalance);
-router.post("/add-money", authenticateUser, addMoney);
-router.post("/withdraw-money", authenticateUser, withdrawMoney);
+router.post("/add-money", addMoney);
+router.post("/withdraw-money", withdrawMoney);
 
 // --- User management ---
 router.delete("/:userId", authenticateUser, deleteUser);
