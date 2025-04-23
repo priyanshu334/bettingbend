@@ -1,5 +1,3 @@
-// controllers/bowlerRunsBetController.js
-
 const BowlerRunsBet = require("../models/BowlerRuns");
 const User = require("../models/user");
 const axios = require("axios");
@@ -8,7 +6,7 @@ const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 // 1️⃣ Place a Bowler Runs Bet
 const placeBowlerRunsBet = async (req, res) => {
   try {
-    const { userId, matchId, teamName, bowlerName, predictedRunsConceded, betAmount } = req.body;
+    const { userId, matchId, bowlerName, predictedRunsConceded, betAmount } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -21,7 +19,6 @@ const placeBowlerRunsBet = async (req, res) => {
     const newBet = new BowlerRunsBet({
       userId,
       matchId,
-      teamName,
       bowlerName,
       predictedRunsConceded,
       betAmount,
@@ -56,7 +53,6 @@ const settleBowlerRunsBets = async (fixtureId, matchId) => {
 
       const bowler = bowlerStats.find(
         (b) =>
-          b.team.name.toLowerCase() === bet.teamName.toLowerCase() &&
           b.bowler &&
           b.bowler.fullname.toLowerCase() === bet.bowlerName.toLowerCase()
       );
@@ -66,7 +62,7 @@ const settleBowlerRunsBets = async (fixtureId, matchId) => {
         continue;
       }
 
-      const runsConceded = bowler.runs; // ✅ Use actual runs conceded
+      const runsConceded = bowler.runs;
 
       const isWin = Math.round(runsConceded) === bet.predictedRunsConceded;
 

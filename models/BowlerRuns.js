@@ -1,5 +1,3 @@
-// models/BowlerRunsBet.js
-
 const mongoose = require("mongoose");
 
 const BowlerRunsBetSchema = new mongoose.Schema({
@@ -11,10 +9,6 @@ const BowlerRunsBetSchema = new mongoose.Schema({
   matchId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Match',
-    required: true
-  },
-  teamName: {
-    type: String,
     required: true
   },
   bowlerName: {
