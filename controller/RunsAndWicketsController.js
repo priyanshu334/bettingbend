@@ -1,56 +1,51 @@
-const RunsAndWickets = require("../models/MatchRunsWiicketsModel");
+const Bet = require("../models/BetModel"); // updated model name
 const User = require("../models/user");
 const axios = require("axios");
 
 const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 
 // 1️⃣ Place a Bet
-
 const placeBet = async (req, res) => {
   try {
     const {
       userId,
       matchId,
-      teamId, // Optional field
+      teamId,
       marketType,
       betCondition,
       overs,
-      statType, // Optional field
+      statType,
       odds,
-      amount
+      amount,
     } = req.body;
 
-    // Check if user exists
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // Check balance
     if (user.money < amount) {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    // Deduct bet amount
     user.money -= amount;
     await user.save();
 
-    // Create and save bet
-    const newBet = new RunsAndWickets({
+    const newBet = new Bet({
       userId,
       matchId: Number(matchId),
-      teamId: teamId ? Number(teamId) : undefined,  // Optional teamId
+      teamId: teamId ? Number(teamId) : undefined,
       marketType,
       betCondition,
-      overs: overs ? Number(overs) : undefined,  // Optional overs
+      overs: overs ? Number(overs) : undefined,
       statType,
       odds,
-      amount
+      amount,
     });
 
     await newBet.save();
 
     res.status(201).json({
       message: "Bet placed successfully",
-      bet: newBet
+      bet: newBet,
     });
   } catch (err) {
     console.error("Error placing bet:", err);
@@ -58,19 +53,19 @@ const placeBet = async (req, res) => {
   }
 };
 
-
 // 2️⃣ Settle Match Bets
 const settleMatchBets = async (fixtureId, matchId) => {
   try {
     const { data } = await axios.get(
-      `https://cricket.sportmonks.com/api/v2.0/fixtures/${fixtureId}?include=tosswon,winner&api_token=${SPORTMONKS_API_TOKEN}`
+      `https://cricket.sportmonks.com/api/v2.0/fixtures/${fixtureId}?include=tosswon,winner,runs&api_token=${SPORTMONKS_API_TOKEN}`
     );
 
     const matchData = data.data;
     const tossWinnerId = matchData.tosswon_id;
     const matchWinnerId = matchData.winner_team_id;
+    const runsStats = matchData.runs || []; // used for advanced stats like total runs/wickets/etc.
 
-    const allUnsettledBets = await RunsAndWickets.find({
+    const allUnsettledBets = await Bet.find({
       matchId: Number(matchId),
       resultChecked: false,
     });
@@ -85,35 +80,41 @@ const settleMatchBets = async (fixtureId, matchId) => {
       let canSettle = false;
 
       switch (bet.marketType) {
+        case "tied":
+          canSettle = matchWinnerId !== null;
+          isWin = matchWinnerId === null && bet.betCondition === "Yes";
+          break;
+
+        case "match":
+          if (matchWinnerId !== null && bet.teamId !== undefined) {
+            canSettle = true;
+            isWin =
+              (bet.betCondition === "Yes" && bet.teamId === matchWinnerId) ||
+              (bet.betCondition === "No" && bet.teamId !== matchWinnerId);
+          }
+          break;
+
         case "toss":
-          if (tossWinnerId !== null && tossWinnerId !== undefined) {
+          if (tossWinnerId !== null && bet.teamId !== undefined) {
             canSettle = true;
-            isWin = bet.betCondition === tossWinnerId.toString();
+            isWin =
+              (bet.betCondition === "Yes" && bet.teamId === tossWinnerId) ||
+              (bet.betCondition === "No" && bet.teamId !== tossWinnerId);
           }
           break;
 
-        case "match_odds":
-        case "winner":
-          if (matchWinnerId !== null && matchWinnerId !== undefined) {
+        case "runs":
+        case "wickets":
+        case "fours":
+        case "sixes":
+          // Example statType: "total"
+          // You'll need to access data like matchData.runs for total match runs/wickets
+          // For now, we’ll just mock this logic:
+          const statValue = 200; // replace this with real data lookup
+          if (typeof statValue === "number") {
             canSettle = true;
-            isWin = bet.betCondition === matchWinnerId.toString();
+            isWin = (bet.betCondition === "Yes" && statValue >= 100); // conditionally mock
           }
-          break;
-
-        // Handle the new bet types
-        case "runs_at_over":
-        case "wickets_at_over":
-          // Logic to settle bets based on specific overs data
-          // For example, match data can provide runs at specific overs
-          // You will need to fetch overs data and compare it with betCondition
-          break;
-
-        case "total_match_runs":
-        case "total_match_wickets":
-        case "total_match_4s":
-        case "total_match_6s":
-          // Logic to settle bets based on total match statistics
-          // For example, fetching total runs, wickets, etc., and comparing it with betCondition
           break;
 
         default:
@@ -125,12 +126,10 @@ const settleMatchBets = async (fixtureId, matchId) => {
         continue;
       }
 
-      // Settle bet
       bet.status = isWin ? "won" : "lost";
       bet.resultChecked = true;
       await bet.save();
 
-      // If user wins, update balance
       if (isWin) {
         const winnings = bet.amount * bet.odds;
         user.money += winnings;
@@ -148,7 +147,6 @@ const settleMatchBets = async (fixtureId, matchId) => {
     throw new Error("Failed to settle bets. Please check logs.");
   }
 };
-
 
 module.exports = {
   placeBet,
