@@ -1,4 +1,4 @@
-const Bet = require("../models/BetModel"); // updated model name
+const Bet = require("../models/MatchRunsWiickets"); // updated model name
 const User = require("../models/user");
 const axios = require("axios");
 
