@@ -7,8 +7,7 @@ const BoundaryBetSchema = new mongoose.Schema({
     required: true,
   },
   matchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Match',
+    type:String,
     required: true,
   },
   teamName: {

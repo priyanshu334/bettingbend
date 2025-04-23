@@ -7,7 +7,7 @@ const BetSchema = new mongoose.Schema(
     teamId: { type: Number, required: false },
     marketType: {
       type: String,
-      enum: ["runs", "wickets", "fours", "sixes", "match", "tied"],
+      enum: ["runs", "wickets", "fours", "sixes", "match", "tied", "toss"],
       required: true,
     },
     statType: {
@@ -17,10 +17,10 @@ const BetSchema = new mongoose.Schema(
     },
     betCondition: {
       type: String,
-      enum: ["Yes", "No"],
+      enum: ["true", "false"],
       required: true,
     },
-    overs: { type: Number },
+    overs: { type: String },
     odds: { type: Number, required: true },
     amount: { type: Number, required: true },
     status: {
@@ -33,4 +33,4 @@ const BetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("MatchRunsWiickets", BetSchema);
+module.exports = mongoose.model("MatchRunsWickets", BetSchema);

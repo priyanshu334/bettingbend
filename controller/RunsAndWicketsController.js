@@ -1,4 +1,4 @@
-const MatchRunsWiickets = require("../models/MatchRunsWiicketsModel"); // ✅ Corrected model import
+const MatchRunsWickets = require("../models/MatchRunsWiicketsModel"); // ✅ Corrected model name and import
 const User = require("../models/user");
 const axios = require("axios");
 
@@ -29,13 +29,13 @@ const placeBet = async (req, res) => {
     user.money -= amount;
     await user.save();
 
-    const newBet = new MatchRunsWiickets({
+    const newBet = new MatchRunsWickets({
       userId,
       matchId: Number(matchId),
       teamId: teamId ? Number(teamId) : undefined,
       marketType,
       betCondition,
-      overs: overs ? Number(overs) : undefined,
+      overs,
       statType,
       odds,
       amount,
@@ -65,7 +65,7 @@ const settleMatchBets = async (fixtureId, matchId) => {
     const matchWinnerId = matchData.winner_team_id;
     const runsStats = matchData.runs || [];
 
-    const allUnsettledBets = await MatchRunsWiickets.find({
+    const allUnsettledBets = await MatchRunsWickets.find({
       matchId: Number(matchId),
       resultChecked: false,
     });
@@ -82,15 +82,15 @@ const settleMatchBets = async (fixtureId, matchId) => {
       switch (bet.marketType) {
         case "tied":
           canSettle = matchWinnerId !== null;
-          isWin = matchWinnerId === null && bet.betCondition === "Yes";
+          isWin = matchWinnerId === null && bet.betCondition === "true";
           break;
 
         case "match":
           if (matchWinnerId !== null && bet.teamId !== undefined) {
             canSettle = true;
             isWin =
-              (bet.betCondition === "Yes" && bet.teamId === matchWinnerId) ||
-              (bet.betCondition === "No" && bet.teamId !== matchWinnerId);
+              (bet.betCondition === "true" && bet.teamId === matchWinnerId) ||
+              (bet.betCondition === "false" && bet.teamId !== matchWinnerId);
           }
           break;
 
@@ -98,26 +98,27 @@ const settleMatchBets = async (fixtureId, matchId) => {
           if (tossWinnerId !== null && bet.teamId !== undefined) {
             canSettle = true;
             isWin =
-              (bet.betCondition === "Yes" && bet.teamId === tossWinnerId) ||
-              (bet.betCondition === "No" && bet.teamId !== tossWinnerId);
+              (bet.betCondition === "true" && bet.teamId === tossWinnerId) ||
+              (bet.betCondition === "false" && bet.teamId !== tossWinnerId);
           }
           break;
 
         case "runs":
         case "wickets":
         case "fours":
-        case "sixes":
-          // Example statType: "total"
-          // Replace this with actual data processing using matchData.runs
-          const statValue = 200; // ⛔ Placeholder — replace with actual stat
+        case "sixes": {
+          // Replace this with real logic from `runsStats`
+          const statValue = 200; // ⛔ Placeholder
           if (typeof statValue === "number") {
             canSettle = true;
-            isWin = (bet.betCondition === "Yes" && statValue >= 100);
+            isWin = (bet.betCondition === "true" && statValue >= 100) ||
+                    (bet.betCondition === "false" && statValue < 100);
           }
           break;
+        }
 
         default:
-          console.warn(`⚠️ Unknown or unsupported marketType: ${bet.marketType}`);
+          console.warn(`⚠️ Unknown marketType: ${bet.marketType}`);
       }
 
       if (!canSettle) {
