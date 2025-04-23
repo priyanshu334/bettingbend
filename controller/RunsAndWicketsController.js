@@ -1,4 +1,4 @@
-const Bet = require("../models/MatchRunsWiickets"); // updated model name
+const MatchRunsWiickets = require("../models/MatchRunsWiicketsModel"); // ✅ Corrected model import
 const User = require("../models/user");
 const axios = require("axios");
 
@@ -29,7 +29,7 @@ const placeBet = async (req, res) => {
     user.money -= amount;
     await user.save();
 
-    const newBet = new Bet({
+    const newBet = new MatchRunsWiickets({
       userId,
       matchId: Number(matchId),
       teamId: teamId ? Number(teamId) : undefined,
@@ -63,9 +63,9 @@ const settleMatchBets = async (fixtureId, matchId) => {
     const matchData = data.data;
     const tossWinnerId = matchData.tosswon_id;
     const matchWinnerId = matchData.winner_team_id;
-    const runsStats = matchData.runs || []; // used for advanced stats like total runs/wickets/etc.
+    const runsStats = matchData.runs || [];
 
-    const allUnsettledBets = await Bet.find({
+    const allUnsettledBets = await MatchRunsWiickets.find({
       matchId: Number(matchId),
       resultChecked: false,
     });
@@ -108,12 +108,11 @@ const settleMatchBets = async (fixtureId, matchId) => {
         case "fours":
         case "sixes":
           // Example statType: "total"
-          // You'll need to access data like matchData.runs for total match runs/wickets
-          // For now, we’ll just mock this logic:
-          const statValue = 200; // replace this with real data lookup
+          // Replace this with actual data processing using matchData.runs
+          const statValue = 200; // ⛔ Placeholder — replace with actual stat
           if (typeof statValue === "number") {
             canSettle = true;
-            isWin = (bet.betCondition === "Yes" && statValue >= 100); // conditionally mock
+            isWin = (bet.betCondition === "Yes" && statValue >= 100);
           }
           break;
 

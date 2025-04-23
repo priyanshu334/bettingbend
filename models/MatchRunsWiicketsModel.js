@@ -33,4 +33,4 @@ const BetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Bet", BetSchema);
+module.exports = mongoose.model("MatchRunsWiickets", BetSchema);
