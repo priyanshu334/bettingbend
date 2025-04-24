@@ -10,10 +10,7 @@ const BoundaryBetSchema = new mongoose.Schema({
     type:String,
     required: true,
   },
-  teamName: {
-    type: String,
-    required: true,
-  },
+
   playerName: {
     type: String,
     required: true,

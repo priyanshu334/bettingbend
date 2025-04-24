@@ -5,7 +5,7 @@ const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 
 const placeBoundaryBet = async (req, res) => {
   try {
-    const { userId, matchId, teamName, playerName, predictedBoundaries, betAmount } = req.body;
+    const { userId, matchId, playerName, predictedBoundaries, betAmount } = req.body;
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
@@ -20,7 +20,6 @@ const placeBoundaryBet = async (req, res) => {
     const newBet = new BoundaryBet({
       userId,
       matchId,
-      teamName,
       playerName,
       predictedBoundaries,
       betAmount,
@@ -52,9 +51,7 @@ const settleBoundaryBets = async (fixtureId, matchId) => {
       if (!user) continue;
 
       const player = playerStats.find(
-        (p) =>
-          p.team.name.toLowerCase() === bet.teamName.toLowerCase() &&
-          p.batsman && p.batsman.fullname.toLowerCase() === bet.playerName.toLowerCase()
+        (p) => p.batsman && p.batsman.fullname.toLowerCase() === bet.playerName.toLowerCase()
       );
 
       if (!player) {
@@ -70,7 +67,7 @@ const settleBoundaryBets = async (fixtureId, matchId) => {
       bet.status = isWin ? 'won' : 'lost';
 
       if (isWin) {
-        const payout = bet.betAmount * 2; // or some multiplier
+        const payout = bet.betAmount * 2; // example payout
         bet.payoutAmount = payout;
         user.money += payout;
         await user.save();

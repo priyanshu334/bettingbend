@@ -10,10 +10,7 @@ const playerWicketsBetSchema = new mongoose.Schema({
     type: String,
     required: true, // Match ID is required for each bet
   },
-  teamName: {
-    type: String,
-    required: true, // Team name should be included in the bet
-  },
+ 
   playerName: {
     type: String,
     required: true, // Player name should be included in the bet
