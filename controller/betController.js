@@ -1,13 +1,22 @@
 const User = require("../models/user");
-const Admin = require("../models/admin");
-const Member = require("../models/member");
+const Bets = require("../models/BetModel");
 
 const placeBet = async (req, res) => {
   try {
     const { userId, amount, betTitle, selectedTeam, odds, won, creditedTo } = req.body;
 
+    // Validate required fields
     if (!userId || !amount || !betTitle || !selectedTeam || !odds || typeof won !== "boolean" || !creditedTo) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Validate selectedTeam and creditedTo
+    if (!["pink", "blue"].includes(selectedTeam)) {
+      return res.status(400).json({ message: "Invalid selectedTeam" });
+    }
+
+    if (!["admin", "member"].includes(creditedTo)) {
+      return res.status(400).json({ message: "Invalid creditedTo value" });
     }
 
     const user = await User.findOne({ userId });
@@ -17,30 +26,24 @@ const placeBet = async (req, res) => {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    // Deduct bet amount
+    // Deduct amount from user balance
     user.money -= amount;
     await user.save();
 
-    // Handle winnings
-    if (won) {
-      const winnings = amount * parseFloat(odds);
+    // Save bet to the database
+    const bets = new Bets({
+      userId,
+      amount,
+      betTitle,
+      selectedTeam,
+      odds,
+      won,
+      creditedTo
+    });
 
-      if (creditedTo === "admin") {
-        const admin = await Admin.findOne();
-        if (!admin) return res.status(404).json({ message: "Admin not found" });
-        admin.money += winnings;
-        await admin.save();
-      } else if (creditedTo === "member") {
-        const member = await Member.findOne({ referralCode: user.referralCode });
-        if (!member) return res.status(404).json({ message: "Member not found for referralCode" });
-        member.money += winnings;
-        await member.save();
-      } else {
-        return res.status(400).json({ message: "Invalid creditedTo field" });
-      }
-    }
+    await bets.save();
 
-    res.status(200).json({ message: "Bet placed successfully" });
+    res.status(200).json({ message: "Bet placed successfully", bet });
   } catch (error) {
     console.error("Error placing bet:", error);
     res.status(500).json({ message: "Internal Server Error" });
