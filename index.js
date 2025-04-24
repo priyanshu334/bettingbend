@@ -13,7 +13,7 @@ const bowlerRunsBet = require("./routes/bowlerRunsBetRoutes");
 const playerRunsBet = require("./routes/playerRunsBetRoutes");
 const wicketBet = require("./routes/playerWicketsBetRoutes");
 const RunsAndWickets = require("./routes/RunsandWicketRoute")
-
+const userBets = require("./routes/userBetsRoutes")
 dotenv.config();
 connectDB();
 const app = express();
@@ -53,6 +53,7 @@ app.use("/api/bowlerruns",bowlerRunsBet)
 app.use("/api/playerruns",playerRunsBet)
 app.use("/api/playerwicket",wicketBet)
 app.use("/api/RunsAndWickets",RunsAndWickets)
+app.use("/api/userbets",userBets)
 
 app.get("/",(req,res)=>{
     res.send("Hello")
