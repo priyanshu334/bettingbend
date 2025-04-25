@@ -15,7 +15,7 @@ const placeBet = async (req, res) => {
       return res.status(400).json({ message: "Invalid selectedTeam" });
     }
 
-    const user = await User.findOne( userId );
+    const user = await User.findById( userId );
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.money < amount) {
@@ -50,7 +50,7 @@ const getUserBets = async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const bets = await Bets.find( userId ).sort({ timestamp: -1 });
+    const bets = await Bets.find( {userId }).sort({ timestamp: -1 });
 
     res.status(200).json({ bets });
   } catch (error) {
