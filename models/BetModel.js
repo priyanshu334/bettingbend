@@ -35,4 +35,4 @@ const BetSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model('Bet', BetSchema);
+module.exports = mongoose.model('Bets', BetSchema);

@@ -45,6 +45,21 @@ const placeBet = async (req, res) => {
   }
 };
 
+// 🆕 Fetch all bets by a user
+const getUserBets = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const bets = await Bets.find({ userId }).sort({ timestamp: -1 });
+
+    res.status(200).json({ bets });
+  } catch (error) {
+    console.error("Error fetching user bets:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
 module.exports = {
   placeBet,
+  getUserBets,
 };
