@@ -3,40 +3,36 @@ const mongoose = require('mongoose');
 
 const BetSchema = new mongoose.Schema({
   userId: {
-    type: String,
-    required: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
   },
   amount: {
     type: Number,
     required: true,
-    min: 100
+    min: 100,
   },
   betTitle: {
     type: String,
-    required: true
+    required: true,
   },
   selectedTeam: {
     type: String,
     enum: ['pink', 'blue'],
-    required: true
+    required: true,
   },
   odds: {
-    type: mongoose.Schema.Types.Mixed, // can be number or string
-    required: true
+    type: mongoose.Schema.Types.Mixed, // allows string or number
+    required: true,
   },
   won: {
     type: Boolean,
-    default: false
-  },
-  creditedTo: {
-    type: String,
-    enum: ['admin', 'member'],
-    required: true
+    default: false,
   },
   timestamp: {
     type: Date,
-    default: Date.now
-  }
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model('Bets', BetSchema);
+module.exports = mongoose.model('Bet', BetSchema);

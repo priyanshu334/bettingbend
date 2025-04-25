@@ -3,20 +3,16 @@ const Bets = require("../models/BetModel");
 
 const placeBet = async (req, res) => {
   try {
-    const { userId, amount, betTitle, selectedTeam, odds, won, creditedTo } = req.body;
+    const { userId, amount, betTitle, selectedTeam, odds, won } = req.body;
 
     // Validate required fields
-    if (!userId || !amount || !betTitle || !selectedTeam || !odds || typeof won !== "boolean" || !creditedTo) {
+    if (!userId || !amount || !betTitle || !selectedTeam || !odds || typeof won !== "boolean") {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Validate selectedTeam and creditedTo
+    // Validate selectedTeam
     if (!["pink", "blue"].includes(selectedTeam)) {
       return res.status(400).json({ message: "Invalid selectedTeam" });
-    }
-
-    if (!["admin", "member"].includes(creditedTo)) {
-      return res.status(400).json({ message: "Invalid creditedTo value" });
     }
 
     const user = await User.findOne({ userId });
@@ -31,17 +27,16 @@ const placeBet = async (req, res) => {
     await user.save();
 
     // Save bet to the database
-    const bets = new Bets({
+    const bet = new Bets({
       userId,
       amount,
       betTitle,
       selectedTeam,
       odds,
-      won,
-      creditedTo
+      won
     });
 
-    await bets.save();
+    await bet.save();
 
     res.status(200).json({ message: "Bet placed successfully", bet });
   } catch (error) {
