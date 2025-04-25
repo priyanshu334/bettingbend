@@ -2,20 +2,23 @@ require("dotenv").config();
 const cron = require("node-cron");
 const { settleMatchBets } = require("../controller/RunsAndWicketsController");
 
-const fixtureId = process.env.MATCH_FIXTURE_ID;
-const matchId = process.env.MATCH_MATCH_ID;
+function startMatchBetsCron(matchId = process.env.MATCH_ID) {
+  if (!matchId) {
+    throw new Error("❌ MATCH_ID must be provided or set in environment variables.");
+  }
 
-if (!fixtureId || !matchId) {
-  throw new Error("❌ MATCH_FIXTURE_ID and MATCH_MATCH_ID must be set in the environment.");
+  cron.schedule("*/5 * * * *", async () => {
+    console.log(`📊 Running match bets settlement cron for matchId: ${matchId}...`);
+
+    try {
+      const result = await settleMatchBets(matchId);
+      console.log(result.message);
+    } catch (err) {
+      console.error("❌ Error in match bets cron:", err.message);
+    }
+  });
+
+  console.log(`✅ Match bets cron job scheduled for matchId: ${matchId}`);
 }
 
-cron.schedule("*/5 * * * *", async () => {
-  console.log("📊 Running match bets settlement cron...");
-
-  try {
-    const result = await settleMatchBets(fixtureId, matchId);
-    console.log(result.message);
-  } catch (err) {
-    console.error("❌ Error in match bets cron:", err.message);
-  }
-});
+module.exports = { startMatchBetsCron };

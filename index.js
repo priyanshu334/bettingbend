@@ -14,6 +14,12 @@ const playerRunsBet = require("./routes/playerRunsBetRoutes");
 const wicketBet = require("./routes/playerWicketsBetRoutes");
 const RunsAndWickets = require("./routes/RunsandWicketRoute")
 const userBets = require("./routes/userBetsRoutes")
+const cronJob1 = require("./cronJobs/playerrunsCron");
+const { startPlayerWicketsCron } = require("./cronJobs/playerrunwicketsCron");
+const { startMatchDataCron } = require("./cronJobs/matchdataCron");
+const { startMatchBetsCron } = require("./cronJobs/matchBetsCron");
+const { startBowlerRunsCron } = require("./cronJobs/bowlerRunsCron");
+const { startBoundaryBetCron } = require("./cronJobs/boundaryBetCron");
 dotenv.config();
 connectDB();
 const app = express();
@@ -54,6 +60,12 @@ app.use("/api/playerruns",playerRunsBet)
 app.use("/api/playerwicket",wicketBet)
 app.use("/api/RunsAndWickets",RunsAndWickets)
 app.use("/api/userbets",userBets)
+cronJob1();
+startBoundaryBetCron();
+startBowlerRunsCron();
+startPlayerWicketsCron();
+startMatchDataCron();
+startMatchBetsCron();
 
 app.get("/",(req,res)=>{
     res.send("Hello")

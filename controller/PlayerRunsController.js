@@ -1,8 +1,11 @@
-const PlayerRunsBet = require("../models/PlayerRuns");
-const User = require("../models/user");
-const axios = require("axios");
+// controllers/playerRunsController.js
 
-const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
+const PlayerRunsBet = require('../models/PlayerRuns.js');
+const User = require('../models/user.js');
+const axios = require('axios');
+require('dotenv').config();
+
+const { SPORTMONKS_API_TOKEN } = process.env;
 
 // 1️⃣ Place Bet
 const placePlayerRunsBet = async (req, res) => {
@@ -42,25 +45,24 @@ const placePlayerRunsBet = async (req, res) => {
 };
 
 // 2️⃣ Settle Bets
-const settlePlayerRunsBets = async (fixtureId, matchId) => {
+const settlePlayerRunsBets = async (matchId) => {
   try {
     const { data } = await axios.get(
-      `https://cricket.sportmonks.com/api/v2.0/fixtures/${fixtureId}?include=batting&api_token=${SPORTMONKS_API_TOKEN}`
+      `https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?include=batting&api_token=${SPORTMONKS_API_TOKEN}`
     );
 
     const battingStats = data.data.batting;
     const bets = await PlayerRunsBet.find({ matchId, isWon: null });
 
     let settled = 0;
+    const results = [];
 
     for (const bet of bets) {
       const user = await User.findById(bet.userId);
       if (!user) continue;
 
       const playerStat = battingStats.find(
-        (b) =>
-          b.batsman &&
-          b.batsman.id === bet.playerId // match by ID for accuracy
+        (b) => b.player_id === bet.playerId
       );
 
       if (!playerStat) {
@@ -68,17 +70,37 @@ const settlePlayerRunsBets = async (fixtureId, matchId) => {
         continue;
       }
 
-      const actualRuns = parseInt(playerStat.score, 10);
-      const predictedThreshold = parseInt(bet.betType.replace("+", ""), 10); // "50+" → 50
+      // Skip if player is still not out
+      if (playerStat.result && playerStat.result.toLowerCase() === "not out") {
+        console.log(`⏳ Player ${bet.playerId} is still not out. Skipping...`);
+        continue;
+      }
 
+      const actualRuns = parseInt(playerStat.score, 10);
+      const predictedThreshold = parseInt(bet.betType.replace("+", ""), 10);
       const isWin = actualRuns >= predictedThreshold;
 
       bet.isWon = isWin;
 
       if (isWin) {
-        const payout = bet.betAmount * bet.odds;
+        const payout = bet.betAmount * 2;
         bet.payoutAmount = payout;
         user.money += payout;
+        results.push({
+          userId: user._id,
+          playerId: bet.playerId,
+          actualRuns,
+          predictedThreshold,
+          result: "🏆 User won the bet!",
+        });
+      } else {
+        results.push({
+          userId: user._id,
+          playerId: bet.playerId,
+          actualRuns,
+          predictedThreshold,
+          result: "😞 User lost the bet.",
+        });
       }
 
       await bet.save();
@@ -86,7 +108,10 @@ const settlePlayerRunsBets = async (fixtureId, matchId) => {
       settled++;
     }
 
-    return { message: `✅ Settled ${settled} player runs bets for match ${matchId}` };
+    return {
+      message: `✅ Settled ${settled} player runs bets for match ${matchId}`,
+      results,
+    };
   } catch (err) {
     console.error("❌ Error settling player runs bets:", err.message);
     throw new Error("Failed to settle player runs bets.");

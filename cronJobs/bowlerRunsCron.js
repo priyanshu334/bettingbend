@@ -2,20 +2,23 @@ require("dotenv").config();
 const cron = require("node-cron");
 const { settleBowlerRunsBets } = require("../controller/BowlerRunsController");
 
-const fixtureId = process.env.BOWLER_FIXTURE_ID;
-const matchId = process.env.BOWLER_MATCH_ID;
+function startBowlerRunsCron(matchId = process.env.MATCH_ID) {
+  if (!matchId) {
+    throw new Error("❌ BOWLER_MATCH_ID must be provided or set in environment variables.");
+  }
 
-if (!fixtureId || !matchId) {
-  throw new Error("❌ BOWLER_FIXTURE_ID and BOWLER_MATCH_ID must be set in the environment.");
+  cron.schedule("*/5 * * * *", async () => {
+    console.log(`🎯 Running bowler runs settlement cron for matchId: ${matchId}...`);
+
+    try {
+      const result = await settleBowlerRunsBets(matchId);
+      console.log(result.message);
+    } catch (err) {
+      console.error("❌ Error in bowler runs cron job:", err.message);
+    }
+  });
+
+  console.log(`✅ Bowler runs cron job scheduled for matchId: ${matchId}`);
 }
 
-cron.schedule("*/5 * * * *", async () => {
-  console.log("🎯 Running bowler runs settlement cron...");
-
-  try {
-    const result = await settleBowlerRunsBets(fixtureId, matchId);
-    console.log(result.message);
-  } catch (err) {
-    console.error("❌ Error in cron job:", err.message);
-  }
-});
+module.exports = { startBowlerRunsCron };

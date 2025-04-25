@@ -8,18 +8,35 @@ const placePlayerWicketsBet = async (req, res) => {
   try {
     const { userId, matchId, playerName, predictedWickets, betAmount } = req.body;
 
+    // Validation
+    if (!userId || !matchId || !playerName || predictedWickets === undefined || betAmount === undefined) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (typeof predictedWickets !== "number" || predictedWickets < 0) {
+      return res.status(400).json({ message: "Invalid predictedWickets value" });
+    }
+
+    if (typeof betAmount !== "number" || betAmount <= 0) {
+      return res.status(400).json({ message: "Invalid bet amount" });
+    }
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     if (user.money < betAmount) return res.status(400).json({ message: "Insufficient balance" });
+
+    // Optional: Prevent duplicate bets on same player/match
+    const existingBet = await PlayerWicketsBet.findOne({ userId, matchId, playerName });
+    if (existingBet) return res.status(409).json({ message: "You already placed a bet on this player for this match" });
 
     user.money -= betAmount;
     await user.save();
 
     const newBet = new PlayerWicketsBet({
       userId,
-      matchId,
-      playerName,
+      matchId: Number(matchId),
+      playerName: playerName.trim(),
       predictedWickets,
       betAmount,
     });
@@ -32,46 +49,63 @@ const placePlayerWicketsBet = async (req, res) => {
       newBalance: user.money 
     });
   } catch (err) {
-    console.error("Error placing player wickets bet:", err.message);
-    res.status(500).json({ error: err.message });
+    console.error("❌ Error placing player wickets bet:", err.message);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
 
 
 // 2️⃣ Settle Player Wickets Bets
-const settlePlayerWicketsBets = async (fixtureId, matchId) => {
+const settlePlayerWicketsBets = async (matchId) => {
   try {
+    if (!matchId) throw new Error("Match ID is required to settle bets");
+
     const { data } = await axios.get(
-      `https://cricket.sportmonks.com/api/v2.0/fixtures/${fixtureId}?include=bowling&api_token=${SPORTMONKS_API_TOKEN}`
+      `https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?include=bowling&api_token=${SPORTMONKS_API_TOKEN}`
     );
 
-    const bowlingStats = data.data.bowling;
-    const bets = await PlayerWicketsBet.find({ matchId, isWon: null });
+    const bowlingStats = data?.data?.bowling;
+    if (!Array.isArray(bowlingStats)) {
+      console.warn("⚠️ No valid bowling stats found from API response");
+      return { message: `No valid bowling data available for match ${matchId}` };
+    }
+
+    const bets = await PlayerWicketsBet.find({ matchId: Number(matchId), isWon: null });
+
+    if (!bets.length) {
+      return { message: `No unsettled player wickets bets for match ${matchId}` };
+    }
 
     let settled = 0;
 
     for (const bet of bets) {
       const user = await User.findById(bet.userId);
-      if (!user) continue;
-
-      const playerStat = bowlingStats.find(
-        (b) => b.bowler && b.bowler.fullname.toLowerCase() === bet.playerName.toLowerCase()
-      );
-
-      if (!playerStat) {
-        console.log(`No bowling data found for ${bet.playerName}`);
+      if (!user) {
+        console.warn(`User not found for bet ID: ${bet._id}`);
         continue;
       }
 
-      const actualWickets = parseInt(playerStat.wickets, 10) || 0;
+      const playerStat = bowlingStats.find(
+        (b) => b?.bowler?.fullname?.toLowerCase() === bet.playerName.toLowerCase()
+      );
+
+      if (!playerStat) {
+        console.log(`⛔ No bowling data found for ${bet.playerName}`);
+        continue;
+      }
+
+      const actualWickets = parseInt(playerStat?.wickets, 10) || 0;
       const isWin = actualWickets === bet.predictedWickets;
 
       bet.isWon = isWin;
+      bet.actualWickets = actualWickets;
 
       if (isWin) {
         const payout = bet.betAmount * 2;
         bet.payoutAmount = payout;
         user.money += payout;
+      } else {
+        bet.payoutAmount = 0;
       }
 
       await bet.save();
