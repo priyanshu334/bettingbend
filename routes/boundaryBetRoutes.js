@@ -14,14 +14,14 @@ router.post("/place",authenticateUser, placeBoundaryBet);
 
 // 🔹 POST: Settle Boundary Bets
 router.post("/settle", async (req, res) => {
-  const { fixtureId, matchId } = req.body;
+  const {  matchId } = req.body;
 
-  if (!fixtureId || !matchId) {
+  if ( !matchId) {
     return res.status(400).json({ message: "fixtureId and matchId are required." });
   }
 
   try {
-    const result = await settleBoundaryBets(fixtureId, matchId);
+    const result = await settleBoundaryBets( matchId);
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });

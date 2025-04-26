@@ -11,13 +11,13 @@ router.post('/bet',authenticateUser ,placeBet);
 // Route to settle match bets (based on match result)
 router.post('/settle', async (req, res) => {
   try {
-    const { fixtureId, matchId } = req.body;
+    const {matchId } = req.body;
 
-    if (!fixtureId || !matchId) {
+    if (!matchId) {
       return res.status(400).json({ message: 'fixtureId and matchId are required' });
     }
 
-    const result = await settleMatchBets(fixtureId, matchId);
+    const result = await settleMatchBets( matchId);
     res.status(200).json(result);
   } catch (error) {
     console.error('Settle API Error:', error.message);

@@ -9,14 +9,14 @@ router.post("/place", authenticateUser ,placeBet);
 
 // 2️⃣ Admin route to settle bets for a match
 router.post("/settle", async (req, res) => {
-  const { fixtureId, matchId } = req.body;
+  const {matchId } = req.body;
 
   if (!fixtureId || !matchId) {
     return res.status(400).json({ message: "fixtureId and matchId are required" });
   }
 
   try {
-    const result = await settleMatchBets(fixtureId, matchId);
+    const result = await settleMatchBets( matchId);
     res.json(result);
   } catch (error) {
     res.status(500).json({ message: error.message });

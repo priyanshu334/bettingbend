@@ -14,14 +14,14 @@ router.post("/place",authenticateUser ,placePlayerWicketsBet);
 
 // 🔹 POST: Settle Player Wickets Bets (admin/internal)
 router.post("/settle", async (req, res) => {
-  const { fixtureId, matchId } = req.body;
+  const { matchId } = req.body;
 
-  if (!fixtureId || !matchId) {
+  if ( !matchId) {
     return res.status(400).json({ message: "fixtureId and matchId are required." });
   }
 
   try {
-    const result = await settlePlayerWicketsBets(fixtureId, matchId);
+    const result = await settlePlayerWicketsBets( matchId);
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });

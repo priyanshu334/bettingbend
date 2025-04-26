@@ -14,14 +14,14 @@ router.post("/place",authenticateUser ,placeBowlerRunsBet);
 
 // 🔹 POST: Settle Bowler Runs Bets
 router.post("/settle", async (req, res) => {
-  const { fixtureId, matchId } = req.body;
+  const {  matchId } = req.body;
 
-  if (!fixtureId || !matchId) {
+  if ( !matchId) {
     return res.status(400).json({ message: "fixtureId and matchId are required." });
   }
 
   try {
-    const result = await settleBowlerRunsBets(fixtureId, matchId);
+    const result = await settleBowlerRunsBets(matchId);
     res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
