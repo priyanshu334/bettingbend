@@ -54,19 +54,23 @@ const placeBet = async (req, res) => {
 // 2️⃣ Settle Match Bets
 const settleMatchBets = async (matchId) => {
   try {
+    console.log("hello")
     if (!matchId) throw new Error("matchId is required to settle bets");
 
     const { data } = await axios.get(
-      `https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?include=tosswon,winner&api_token=${SPORTMONKS_API_TOKEN}`
+      `https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?include=tosswon,winnerteam&api_token=${SPORTMONKS_API_TOKEN}`
     );
 
+    console.log("data is ",data)
     if (!data || !data.data) {
       console.warn("⚠️ Invalid match data response");
       return { message: "Invalid match data" };
     }
 
     const matchData = data.data;
-    const tossWinnerId = matchData.tosswon_id;
+    console.log(matchData)
+    const tossWinnerId = matchData.toss_won_team_id;
+    console.log(tossWinnerId)
     const matchWinnerId = matchData.winner_team_id;
 
     const bets = await Bet.find({ matchId, resultChecked: false });

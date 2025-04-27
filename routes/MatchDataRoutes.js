@@ -12,12 +12,14 @@ router.post('/bet',authenticateUser ,placeBet);
 router.post('/settle', async (req, res) => {
   try {
     const {matchId } = req.body;
+    console.log(matchId)
 
     if (!matchId) {
       return res.status(400).json({ message: 'fixtureId and matchId are required' });
     }
 
     const result = await settleMatchBets( matchId);
+    console.log(result)
     res.status(200).json(result);
   } catch (error) {
     console.error('Settle API Error:', error.message);
