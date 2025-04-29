@@ -6,10 +6,10 @@ const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 // 1️⃣ Place a Bowler Runs Bet
 const placeBowlerRunsBet = async (req, res) => {
   try {
-    const { userId, matchId, bowlerName, predictedRunsConceded, betAmount } = req.body;
+    const { userId, matchId, playerId, bowlerName, predictedRunsConceded, betAmount } = req.body;
 
     // Validate input
-    if (!userId || !matchId || !bowlerName || predictedRunsConceded == null || betAmount == null) {
+    if (!userId || !matchId || !playerId || !bowlerName || predictedRunsConceded == null || betAmount == null) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -24,13 +24,15 @@ const placeBowlerRunsBet = async (req, res) => {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    // Save the bet
+    // Deduct bet amount
     user.money -= betAmount;
     await user.save();
 
+    // Create and save the bet
     const newBet = new BowlerRunsBet({
       userId,
       matchId,
+      playerId,
       bowlerName,
       predictedRunsConceded,
       betAmount,
@@ -50,6 +52,7 @@ const settleBowlerRunsBets = async (matchId) => {
   try {
     if (!matchId) throw new Error("Match ID is required");
 
+    // Fetch match bowling stats
     const { data } = await axios.get(
       `https://cricket.sportmonks.com/api/v2.0/fixtures/${matchId}?include=bowling&api_token=${SPORTMONKS_API_TOKEN}`
     );
@@ -61,6 +64,7 @@ const settleBowlerRunsBets = async (matchId) => {
       throw new Error("Bowling data not available");
     }
 
+    // Get all pending bets for the match
     const bets = await BowlerRunsBet.find({ matchId, isWon: null });
 
     let settled = 0;
@@ -72,13 +76,14 @@ const settleBowlerRunsBets = async (matchId) => {
         continue;
       }
 
+      // Find bowler by playerId
       const bowler = bowlerStats.find(
-        (b) =>
-          b?.bowler?.fullname?.toLowerCase?.() === bet.bowlerName.toLowerCase()
+        (b) => b?.player_id?.toString() === bet.playerId?.toString()
       );
 
       if (!bowler || typeof bowler.runs !== "number") {
-        console.warn(`⚠️ No stats found for bowler "${bet.bowlerName}" in match ${matchId}`);
+        console.warn(`⚠️ No stats found for bowler ID "${bet.playerId}" in match ${matchId}`);
+        
         bet.betStatus = "void";
         bet.settledAt = new Date();
         await bet.save();

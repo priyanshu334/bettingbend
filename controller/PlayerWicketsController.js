@@ -6,10 +6,10 @@ const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 // 1️⃣ Place Wicket Bet
 const placePlayerWicketsBet = async (req, res) => {
   try {
-    const { userId, matchId, playerName, predictedWickets, betAmount } = req.body;
+    const { userId, matchId, playerId, playerName, predictedWickets, betAmount } = req.body;
 
     // Validation
-    if (!userId || !matchId || !playerName || predictedWickets === undefined || betAmount === undefined) {
+    if (!userId || !matchId || !playerId || !playerName || predictedWickets === undefined || betAmount === undefined) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -27,7 +27,7 @@ const placePlayerWicketsBet = async (req, res) => {
     if (user.money < betAmount) return res.status(400).json({ message: "Insufficient balance" });
 
     // Optional: Prevent duplicate bets on same player/match
-    const existingBet = await PlayerWicketsBet.findOne({ userId, matchId, playerName });
+    const existingBet = await PlayerWicketsBet.findOne({ userId, matchId, playerId });
     if (existingBet) return res.status(409).json({ message: "You already placed a bet on this player for this match" });
 
     user.money -= betAmount;
@@ -36,6 +36,7 @@ const placePlayerWicketsBet = async (req, res) => {
     const newBet = new PlayerWicketsBet({
       userId,
       matchId: Number(matchId),
+      playerId,
       playerName: playerName.trim(),
       predictedWickets,
       betAmount,
@@ -69,8 +70,9 @@ const settlePlayerWicketsBets = async (matchId) => {
       console.warn("⚠️ No valid bowling stats found from API response");
       return { message: `No valid bowling data available for match ${matchId}` };
     }
+    console.log("Bowilng stats are ",bowlingStats)
 
-    const bets = await PlayerWicketsBet.find({ matchId: Number(matchId), isWon: null });
+    const bets = await PlayerWicketsBet.find({ matchId ,isWon: null });
 
     if (!bets.length) {
       return { message: `No unsettled player wickets bets for match ${matchId}` };
@@ -79,22 +81,19 @@ const settlePlayerWicketsBets = async (matchId) => {
     let settled = 0;
 
     for (const bet of bets) {
-      const user = await User.findById(bet.userId);
-      if (!user) {
-        console.warn(`User not found for bet ID: ${bet._id}`);
-        continue;
-      }
+          const user = await User.findById(bet.userId);
+          if (!user) continue;
+    
+          const playerStat = bowlingStats.find(
+            (b) => b.player_id.toString() === bet.playerId.toString()
+          );
+    
+          if (!playerStat) {
+            console.log(`No data for player ID ${bet.playerId}`);
+            continue;
+          }
 
-      const playerStat = bowlingStats.find(
-        (b) => b?.bowler?.fullname?.toLowerCase() === bet.playerName.toLowerCase()
-      );
-
-      if (!playerStat) {
-        console.log(`⛔ No bowling data found for ${bet.playerName}`);
-        continue;
-      }
-
-      const actualWickets = parseInt(playerStat?.wickets, 10) || 0;
+      const actualWickets = parseInt(playerStat?.wickets, 10) || 0;  // Ensure it is always a number
       const isWin = actualWickets === bet.predictedWickets;
 
       bet.isWon = isWin;
@@ -121,7 +120,6 @@ const settlePlayerWicketsBets = async (matchId) => {
     throw new Error("Failed to settle player wickets bets.");
   }
 };
-
 
 module.exports = {
   placePlayerWicketsBet,

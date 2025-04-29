@@ -7,11 +7,14 @@ const BowlerRunsBetSchema = new mongoose.Schema({
     required: true
   },
   matchId: {
-    type: String ,
-    
+    type: String,
     required: true
   },
-  bowlerName: {
+  playerId: {            // 🆕 Store player ID now
+    type: String,
+    required: true
+  },
+  bowlerName: {          // (Optional) still storing name for UI convenience
     type: String,
     required: true
   },

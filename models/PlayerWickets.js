@@ -6,9 +6,14 @@ const playerWicketsBetSchema = new mongoose.Schema({
     ref: "User", // Reference to the User model
     required: true,
   },
+  
   matchId: {
     type: String,
     required: true, // Match ID is required for each bet
+  },
+  playerId: {            // 🆕 Store player ID now
+    type: String,
+    required: true
   },
  
   playerName: {

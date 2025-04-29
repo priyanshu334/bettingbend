@@ -52,6 +52,7 @@ const settlePlayerRunsBets = async (matchId) => {
     );
 
     const battingStats = data.data.batting;
+    
     const bets = await PlayerRunsBet.find({ matchId, isWon: null });
 
     let settled = 0;

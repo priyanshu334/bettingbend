@@ -7,9 +7,9 @@ const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN;
 // 1️⃣ Place a Boundary Bet
 const placeBoundaryBet = async (req, res) => {
   try {
-    const { userId, matchId, playerName, predictedBoundaries, betAmount } = req.body;
+    const { userId, matchId, playerId, playerName, predictedBoundaries, betAmount } = req.body;
 
-    if (!userId || !matchId || !playerName || predictedBoundaries == null || betAmount == null) {
+    if (!userId || !matchId || !playerId || !playerName || predictedBoundaries == null || betAmount == null) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -26,10 +26,12 @@ const placeBoundaryBet = async (req, res) => {
     const newBet = new BoundaryBet({
       userId,
       matchId,
+      playerId,
       playerName: playerName.trim(),
       predictedBoundaries,
       betAmount,
     });
+    console.log(newBet)
 
     await newBet.save();
 
@@ -64,12 +66,15 @@ const settleBoundaryBets = async (matchId) => {
         continue;
       }
 
+      console.log(bets)
+      console.log("battingstats are ",battingStats)
       const player = battingStats.find(
-        (p) => p?.batsman?.fullname?.toLowerCase() === bet.playerName.toLowerCase()
+        (b) => b.player_id.toString() === bet.playerId.toString()
+        
       );
 
       if (!player) {
-        console.warn(`Player stats not found for ${bet.playerName}`);
+        console.warn(`Player stats not found for playerId ${bet.playerId}`);
         continue;
       }
 
