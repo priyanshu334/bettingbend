@@ -22,12 +22,18 @@ const signup = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user
+    // Create new user with initial account history
     const newUser = new User({
       fullName,
       phone,
       password: hashedPassword,
       referralCode,
+      accountHistory: [{
+        type: 'deposit',
+        amount: 0,
+        reference: 'Account created',
+        details: { initialBalance: true }
+      }]
     });
 
     await newUser.save();
@@ -181,19 +187,28 @@ const addMoneyByPhone = async (req, res) => {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    // Find user by phone number
     const user = await User.findOne({ phone });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Update balance
+    // Update balance and add to history
     user.money += numericAmount;
+    user.accountHistory.push({
+      type: 'deposit',
+      amount: numericAmount,
+      reference: 'Manual deposit',
+      details: {
+        processedBy: req.user?.userId || 'system'
+      }
+    });
+
     await user.save();
 
     res.json({
       message: "Money added successfully",
       newBalance: user.money,
+      transactionId: user.accountHistory[user.accountHistory.length - 1]._id
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -214,36 +229,44 @@ const withdrawMoneyByPhone = async (req, res) => {
       return res.status(400).json({ error: "Invalid amount" });
     }
 
-    // Find user by phone number
     const user = await User.findOne({ phone });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check sufficient balance
     if (user.money < numericAmount) {
       return res.status(400).json({ error: "Insufficient balance" });
     }
 
-    // Update balance
+    // Update balance and add to history
     user.money -= numericAmount;
+    user.accountHistory.push({
+      type: 'withdrawal',
+      amount: numericAmount,
+      reference:  'Manual withdrawal',
+      details: {
+        processedBy: req.user?.userId || 'system'
+      }
+    });
+
     await user.save();
 
     res.json({
       message: "Money withdrawn successfully",
       userBalance: user.money,
+      transactionId: user.accountHistory[user.accountHistory.length - 1]._id
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 // Add bet to user's history
+
 const addBetToHistory = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { player, odds, amount, result, winnings } = req.body;
+    const { player, odds, amount, result, winnings, betId } = req.body;
 
-    // Verify the requesting user is the same as the user being updated
     if (req.user.userId !== userId) {
       return res.status(403).json({ message: "Not authorized" });
     }
@@ -253,32 +276,50 @@ const addBetToHistory = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Update user's balance and total bets
-    const update = {
-      $push: {
-        betHistory: {
-          player,
-          odds,
-          amount,
-          result,
-          winnings,
-        },
-      },
-      $inc: {
-        money: result === "win" ? winnings : -amount,
-        totalBets: amount,
-      },
+    // Prepare updates
+    const betRecord = {
+      player,
+      odds,
+      amount,
+      result,
+      winnings: result === 'win' ? winnings : 0,
+      betId
     };
 
-    const updatedUser = await User.findByIdAndUpdate(userId, update, {
-      new: true,
-    }).select("-password");
+    const accountUpdates = [{
+      type: 'bet',
+      amount: amount,
+      reference: `Bet on ${player}`,
+      details: { betId, odds }
+    }];
 
-    res.json(updatedUser);
+    if (result === 'win' && winnings > 0) {
+      accountUpdates.push({
+        type: 'win',
+        amount: winnings,
+        reference: `Won bet on ${player}`,
+        details: { betId, odds }
+      });
+    }
+
+    // Update user document
+    user.betHistory.push(betRecord);
+    user.accountHistory.push(...accountUpdates);
+    user.totalBets += amount;
+    user.money += result === 'win' ? winnings : -amount;
+
+    await user.save();
+
+    res.json({
+      message: "Bet recorded successfully",
+      newBalance: user.money,
+      betId
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // Get user's bet history
 const getBetHistory = async (req, res) => {
@@ -388,6 +429,124 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Get all users' bet histories (admin only)
+const getAllUsersBetHistory = async (req, res) => {
+  try {
+    // Optional: Check if requester is admin (if you have role-based auth)
+    // if (req.user.role !== 'admin') {
+    //   return res.status(403).json({ message: 'Not authorized' });
+    // }
+
+    const users = await User.find({}, 'fullName phone betHistory').lean();
+
+    const betHistories = users.map(user => ({
+      userId: user._id,
+      fullName: user.fullName,
+      phone: user.phone,
+      betHistory: user.betHistory,
+    }));
+
+    res.json(betHistories);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getUserAccountHistory = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log(userId);
+    const { type, startDate, endDate, limit = 50, page = 1 } = req.query;
+
+    if (req.user.userId !== userId) {
+      return res.status(403).json({ message: "Not authorized" });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Filtering logic
+    let history = user.accountHistory;
+    
+    // Filter by type if provided
+    if (type) {
+      history = history.filter(entry => entry.type === type);
+    }
+    
+    // Filter by date range if provided
+    if (startDate) {
+      const start = new Date(startDate);
+      history = history.filter(entry => entry.createdAt >= start);
+    }
+    
+    if (endDate) {
+      const end = new Date(endDate);
+      history = history.filter(entry => entry.createdAt <= end);
+    }
+
+    // Sorting (newest first)
+    history.sort((a, b) => b.createdAt - a.createdAt);
+
+    // Pagination
+    const skip = (page - 1) * limit;
+    const paginatedHistory = history.slice(skip, skip + limit);
+
+    res.json({
+      currentBalance: user.money,
+      totalTransactions: history.length,
+      page,
+      totalPages: Math.ceil(history.length / limit),
+      transactions: paginatedHistory
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get all users' account history (admin only)
+const getAllUsersAccountHistory = async (req, res) => {
+  try {
+    // Optional: Add admin verification if you have role-based auth
+    // if (req.user.role !== 'admin') {
+    //   return res.status(403).json({ message: 'Not authorized' });
+    // }
+
+    const { type, startDate, endDate } = req.query;
+
+    // Build query filters
+    const matchStage = {};
+    if (type) matchStage['accountHistory.type'] = type;
+    if (startDate || endDate) {
+      matchStage['accountHistory.createdAt'] = {};
+      if (startDate) matchStage['accountHistory.createdAt'].$gte = new Date(startDate);
+      if (endDate) matchStage['accountHistory.createdAt'].$lte = new Date(endDate);
+    }
+
+    const users = await User.aggregate([
+      { $unwind: "$accountHistory" },
+      { $match: matchStage },
+      { $sort: { "accountHistory.createdAt": -1 } },
+      { 
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          fullName: 1,
+          phone: 1,
+          transaction: "$accountHistory"
+        }
+      }
+    ]);
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
 module.exports = {
   signup,
   login,
@@ -402,5 +561,8 @@ module.exports = {
   getUserBalance,
   getAllUsers,
   getUserById,
-  changePassword, // <-- Add this line
+  changePassword,
+  getAllUsersBetHistory,
+  getUserAccountHistory,
+  getAllUsersAccountHistory
 };
