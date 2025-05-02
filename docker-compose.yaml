@@ -24,13 +24,12 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - mongo-data:/data/db
+      - /home/ubuntu/mongo-data:/data/db  # <-- Persist data here
     networks:
       - app-network
     restart: unless-stopped
 
 volumes:
-  mongo-data:
   node_modules:
 
 networks:
