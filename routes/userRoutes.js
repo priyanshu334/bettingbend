@@ -51,7 +51,7 @@ router.get("/:userId/bets",  getBetHistory);
 router.get("/bets", getAllUsersBetHistory);
 
 // Add this with your other admin routes
-router.get("/account-history",  getAllUsersAccountHistory);
+router.get("/account-history",authenticateUser , getAllUsersAccountHistory);
 router.get("/:userId/account-history",  getUserAccountHistory);
 // --- User management ---
 router.put("/:userId", authenticateUser, editUser);
